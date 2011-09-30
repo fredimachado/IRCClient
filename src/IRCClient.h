@@ -54,6 +54,17 @@ struct IRCCommandPrefix
     std::string host;
 };
 
+struct IRCMessage
+{
+    IRCMessage();
+    IRCMessage(std::string cmd, IRCCommandPrefix p, std::vector<std::string> params) :
+        command(cmd), prefix(p), parameters(params) {};
+
+    std::string command;
+    IRCCommandPrefix prefix;
+    std::vector<std::string> parameters;
+};
+
 struct IRCCommandHook
 {
     IRCCommandHook() : function(NULL), next(NULL) {};

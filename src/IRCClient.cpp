@@ -136,6 +136,7 @@ void IRCClient::Parse(std::string data)
     if (command == "PING")
         SendIRC("PONG :" + parameters.at(0));
 
+    IRCMessage ircMessage(command, cmdPrefix, parameters);
     CallHook(command, cmdPrefix, parameters);
 
     std::cout << original << std::endl;
