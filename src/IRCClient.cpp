@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <algorithm>
 #include "IRCSocket.h"
 #include "IRCClient.h"
 
@@ -86,6 +87,7 @@ void IRCClient::Parse(std::string data)
     }
 
     std::string command = data.substr(0, data.find(" "));
+    std::transform(command.begin(), command.end(), command.begin(), towupper);
     if (data.find(" ") != std::string::npos)
         data = data.substr(data.find(" ") + 1);
     else
