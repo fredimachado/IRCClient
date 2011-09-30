@@ -65,9 +65,9 @@ int main(int argc, char* argv[])
     std::string nick("MyIRCClient");
     std::string user("IRCClient");
 
-    if (argv[3])
+    if (argc >= 4)
         nick = argv[3];
-    if (argv[4])
+    if (argc >= 5)
         user = argv[4];
 
     IRCClient client;
