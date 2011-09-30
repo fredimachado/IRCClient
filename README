@@ -20,11 +20,13 @@ Copyright (C) Fredi Machado (https://github.com/Fredi)
 Simple console IRC Client writen in C++
 
 - Currently can be used as an IRC bot, since doesn't accept input yet.
-- It has a simple hook system where you can do whatever you want  when receiving an IRC command.
+- It has a simple hook system where you can do whatever you want  when
+  receiving an IRC command.
 - Example in Main.cpp
 
-BUILDING ON LINUX:
 
-- Edit Makefile and remove -lws2_32 from LDFLAGS (on line 3).
-  I need to find a better way (suggestions?)
-- You could also remove ".exe" from EXECUTABLE
+Building on windows with Mingw:
+
+- Edit Makefile
+- Add "-lws2_32" (no quotes) to LDFLAGS on line 3.
+- Add ".exe" extension (no quotes) to the EXECUTABLE filename (line 8).
