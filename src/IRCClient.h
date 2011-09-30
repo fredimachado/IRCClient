@@ -99,6 +99,9 @@ private:
     IRCSocket _socket;
 
     std::list<IRCCommandHook> _hooks;
+
+    std::string _nick;
+    std::string _user;
 };
 
 #endif

@@ -56,6 +56,9 @@ bool IRCClient::SendIRC(std::string data)
 
 bool IRCClient::Login(std::string nick, std::string user)
 {
+    _nick = nick;
+    _user = user;
+
     if (SendIRC("HELLO"))
         if (SendIRC("NICK " + nick))
             if (SendIRC("USER " + user + " 8 * :Cpp IRC Client"))
