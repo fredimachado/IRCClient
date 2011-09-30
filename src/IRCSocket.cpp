@@ -9,7 +9,7 @@
 
 #include "IRCSocket.h"
 
-#define MAXDATASIZE 1024
+#define MAXDATASIZE 4096
 
 bool IRCSocket::Init()
 {
