@@ -48,12 +48,19 @@ int main(int argc, char* argv[])
 {
     if (argc < 3)
     {
-        std::cout << "Insuficient parameters: host port" << std::endl;
+        std::cout << "Insuficient parameters: host port [nick] [user]" << std::endl;
         return 1;
     }
 
     char* host = argv[1];
     int port = atoi(argv[2]);
+    std::string nick("MyIRCClient");
+    std::string user("IRCClient");
+
+    if (argv[3])
+        nick = argv[3];
+    if (argv[4])
+        user = argv[4];
 
     IRCClient client;
 
@@ -67,7 +74,7 @@ int main(int argc, char* argv[])
         {
             std::cout << "Connected. Loggin in..." << std::endl;
 
-            if (client.Login("MyIRCClient", "IRCClient"))
+            if (client.Login(nick, user))
             {
                 std::cout << "Logged." << std::endl;
 
