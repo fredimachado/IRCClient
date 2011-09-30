@@ -27,17 +27,17 @@ void signalHandler(int signal)
     running = false;
 }
 
-int onPrivMsg(IRCCommandPrefix prefix, std::vector<std::string> parameters, void* client)
+int onPrivMsg(IRCMessage message, void* client)
 {
-    if (prefix.nick != "Fredi")
+    if (message.prefix.nick != "Fredi")
         return 1;
 
-    std::string text = parameters.at(parameters.size() - 1);
+    std::string text = message.parameters.at(message.parameters.size() - 1);
 
-    if (text == "enter #trinity")
-        ((IRCClient*)client)->SendIRC("JOIN #trinity");
-    if (text == "leave #trinity")
-        ((IRCClient*)client)->SendIRC("LEAVE #trinity");
+    if (text == "enter channel")
+        ((IRCClient*)client)->SendIRC("JOIN #myircclient");
+    if (text == "leave channel")
+        ((IRCClient*)client)->SendIRC("PART #myircclient");
     if (text == "quit now")
         ((IRCClient*)client)->SendIRC("QUIT :Bye bye!");
 

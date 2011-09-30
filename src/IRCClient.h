@@ -20,6 +20,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include "IRCSocket.h"
 
 extern std::vector<std::string> split(std::string const&, char);
@@ -67,19 +68,15 @@ struct IRCMessage
 
 struct IRCCommandHook
 {
-    IRCCommandHook() : function(NULL), next(NULL) {};
+    IRCCommandHook() : function(NULL) {};
 
     std::string command;
-    int (*function)(IRCCommandPrefix /*prefix*/, std::vector<std::string> /*parameters*/, void*);
-    IRCCommandHook* next;
+    int (*function)(IRCMessage /*message*/, void*);
 };
 
 class IRCClient
 {
 public:
-    IRCClient() : _hooks(NULL) {};
-    ~IRCClient();
-
     bool InitSocket();
     bool Connect(char* /*host*/, int /*port*/);
     void Disconnect();
@@ -91,18 +88,17 @@ public:
 
     void ReceiveData();
 
-    void HookIRCCommand(std::string /*command*/, int (*function)(IRCCommandPrefix /*prefix*/, std::vector<std::string> /*parameters*/, void*));
+    void HookIRCCommand(std::string /*command*/, int (*function)(IRCMessage /*message*/, void*));
 
     void Parse(std::string /*data*/);
 
 private:
-    void CallHook(std::string /*command*/, IRCCommandPrefix /*prefix*/, std::vector<std::string> /*parameters*/);
-    void AddIRCCommandHook(IRCCommandHook* /*hook*/, std::string /*command*/, int (*function)(IRCCommandPrefix /*prefix*/, std::vector<std::string> /*parameters*/, void*));
-	void DeleteIRCCommandHook(IRCCommandHook* /*hook*/);
+    void CallHook(std::string /*command*/, IRCMessage /*message*/);
+	void DeleteIRCCommandHook(IRCCommandHook /*hook*/);
 
     IRCSocket _socket;
 
-    IRCCommandHook* _hooks;
+    std::list<IRCCommandHook> _hooks;
 };
 
 #endif

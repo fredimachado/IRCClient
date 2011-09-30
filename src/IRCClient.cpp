@@ -33,12 +33,6 @@ std::vector<std::string> split(std::string const& text, char sep)
     return tokens;
 }
 
-IRCClient::~IRCClient()
-{
-    if (_hooks)
-        DeleteIRCCommandHook(_hooks);
-}
-
 bool IRCClient::InitSocket()
 {
     return _socket.Init();
@@ -137,57 +131,32 @@ void IRCClient::Parse(std::string data)
         SendIRC("PONG :" + parameters.at(0));
 
     IRCMessage ircMessage(command, cmdPrefix, parameters);
-    CallHook(command, cmdPrefix, parameters);
+    CallHook(command, ircMessage);
 
     std::cout << original << std::endl;
 }
 
-void IRCClient::AddIRCCommandHook(IRCCommandHook* hook, std::string command, int (*function)(IRCCommandPrefix /*prefix*/, std::vector<std::string> /*parameters*/, void*))
+void IRCClient::HookIRCCommand(std::string command, int (*function)(IRCMessage /*message*/, void*))
 {
-    if (hook->function)
-    {
-        if (!hook->next)
-            hook->next = new IRCCommandHook();
-        AddIRCCommandHook(hook->next, command, function);
-    }
-    else
-    {
-        hook->function = function;
-        hook->command = command;
-    }
+    IRCCommandHook hook;
+
+    hook.command = command;
+    hook.function = function;
+
+    _hooks.push_back(hook);
 }
 
-void IRCClient::DeleteIRCCommandHook(IRCCommandHook* hook)
+void IRCClient::CallHook(std::string command, IRCMessage message)
 {
-    if (hook->next)
-        DeleteIRCCommandHook(hook->next);
-
-    delete hook;
-}
-
-void IRCClient::HookIRCCommand(std::string command, int (*function)(IRCCommandPrefix /*prefix*/, std::vector<std::string> /*parameters*/, void*))
-{
-    if (!_hooks)
-        _hooks = new IRCCommandHook();
-
-    AddIRCCommandHook(_hooks, command, function);
-}
-
-void IRCClient::CallHook(std::string command, IRCCommandPrefix prefix, std::vector<std::string> parameters)
-{
-    if (!_hooks)
+    if (_hooks.empty())
         return;
 
-    IRCCommandHook* hook = _hooks;
-
-    while (hook)
+    for (std::list<IRCCommandHook>::const_iterator itr = _hooks.begin(); itr != _hooks.end(); ++itr)
     {
-        if (hook->command == command)
+        if (itr->command == command)
         {
-            (*(hook->function))(prefix, parameters, this);
-            hook = NULL;
+            (*(itr->function))(message, this);
+            break;
         }
-        else
-            hook = hook->next;
     }
 }
