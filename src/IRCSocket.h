@@ -10,7 +10,18 @@
 
 #include <iostream>
 #include <sstream>
-#include "winsock2.h"
+
+#ifdef WIN32
+#include <winsock2.h>
+#else
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#define closesocket(s) close(s)
+#define SOCKET_ERROR -1
+#define INVALID_SOCKET -1
+#endif
 
 class IRCSocket
 {
@@ -26,7 +37,7 @@ public:
     std::string ReceiveData();
 
 private:
-    SOCKET _socket;
+    int _socket;
 
     bool _connected;
 };
