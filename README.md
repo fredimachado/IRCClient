@@ -1,3 +1,5 @@
+= C++ Console IRC Client =
+
 Copyright (C) Fredi Machado (https://github.com/Fredi)
 
   IRCClient is free software; you can redistribute it and/or modify
