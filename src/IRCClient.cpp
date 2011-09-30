@@ -85,11 +85,13 @@ void IRCClient::HandleCommand(IRCMessage message)
 {
     if (message.command == "PRIVMSG" || message.command == "NOTICE")
     {
+        std::string to = message.parameters.at(0);
         std::string text = message.parameters.at(message.parameters.size() - 1);
 
-        // Response to VERSION
-        if (text == "\001VERSION\001")
-            SendIRC("PRIVMSG " + message.prefix.nick + " :\001VERSION IRCClient by Fredi Machado - https://github.com/Fredi/IRCClient \001");
+        // Message to us
+        if (to == _nick)
+            if (text == "\001VERSION\001") // Respond to CTCP VERSION
+                SendIRC("PRIVMSG " + message.prefix.nick + " :\001VERSION IRCClient by Fredi Machado - https://github.com/Fredi/IRCClient \001");
     }
 }
 
