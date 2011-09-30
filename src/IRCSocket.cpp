@@ -23,7 +23,7 @@
 
 bool IRCSocket::Init()
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData))
     {
@@ -35,7 +35,7 @@ bool IRCSocket::Init()
     if ((_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
     {
         std::cout << "Socket error." << std::endl;
-        #ifdef WIN32
+        #ifdef _WIN32
         WSACleanup();
         #endif
         return false;
@@ -45,13 +45,13 @@ bool IRCSocket::Init()
     if (setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, (char const*)&on, sizeof(on)) == -1)
     {
         std::cout << "Invalid socket." << std::endl;
-        #ifdef WIN32
+        #ifdef _WIN32
         WSACleanup();
         #endif
         return false;
     }
 
-    #ifdef WIN32
+    #ifdef _WIN32
     u_long mode = 0;
     ioctlsocket(_socket, FIONBIO, &mode);
     #else
@@ -69,7 +69,7 @@ bool IRCSocket::Connect(char const* host, int port)
     if (!(he = gethostbyname(host)))
     {
         std::cout << "Could not resolve host: " << host << std::endl;
-        #ifdef WIN32
+        #ifdef _WIN32
         WSACleanup();
         #endif
         return false;
@@ -98,7 +98,7 @@ void IRCSocket::Disconnect()
 {
     if (_connected)
     {
-        #ifdef WIN32
+        #ifdef _WIN32
         shutdown(_socket, 2);
         #endif
         closesocket(_socket);
