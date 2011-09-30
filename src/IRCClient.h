@@ -93,6 +93,7 @@ public:
     void Parse(std::string /*data*/);
 
 private:
+    void HandleCommand(IRCMessage /*message*/);
     void CallHook(std::string /*command*/, IRCMessage /*message*/);
 
     IRCSocket _socket;

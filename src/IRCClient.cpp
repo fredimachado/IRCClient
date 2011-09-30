@@ -78,6 +78,18 @@ void IRCClient::ReceiveData()
     }
 }
 
+void IRCClient::HandleCommand(IRCMessage message)
+{
+    if (message.command == "PRIVMSG" || message.command == "NOTICE")
+    {
+        std::string text = message.parameters.at(message.parameters.size() - 1);
+
+        // Response to VERSION
+        if (text == "\001VERSION\001")
+            SendIRC("PRIVMSG " + message.prefix.nick + " :\001VERSION IRCClient by Fredi Machado - https://github.com/Fredi/IRCClient \001");
+    }
+}
+
 void IRCClient::Parse(std::string data)
 {
     std::string original(data);
@@ -131,6 +143,11 @@ void IRCClient::Parse(std::string data)
         SendIRC("PONG :" + parameters.at(0));
 
     IRCMessage ircMessage(command, cmdPrefix, parameters);
+
+    // Default handler
+    HandleCommand(ircMessage);
+
+    // Try to call hook (if any matches)
     CallHook(command, ircMessage);
 
     std::cout << original << std::endl;
