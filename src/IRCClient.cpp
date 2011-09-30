@@ -9,9 +9,9 @@
 #include "IRCSocket.h"
 #include "IRCClient.h"
 
-void split(std::vector<std::string>& tokens, std::string const& text, char sep)
+std::vector<std::string> split(std::string const& text, char sep)
 {
-    tokens.clear();
+    std::vector<std::string> tokens;
     int start = 0, end = 0;
     while ((end = text.find(sep, start)) != std::string::npos)
     {
@@ -19,6 +19,7 @@ void split(std::vector<std::string>& tokens, std::string const& text, char sep)
         start = end + 1;
     }
     tokens.push_back(text.substr(start));
+    return tokens;
 }
 
 IRCClient::~IRCClient()

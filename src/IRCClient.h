@@ -12,7 +12,7 @@
 #include <vector>
 #include "IRCSocket.h"
 
-extern void split(std::vector<std::string>&, std::string const&, char);
+extern std::vector<std::string> split(std::string const&, char);
 
 struct IRCCommandPrefix
 {
@@ -26,13 +26,13 @@ struct IRCCommandPrefix
 
         if (prefix.find("@") != std::string::npos)
         {
-            split(tokens, prefix, '@');
+            tokens = split(prefix, '@');
             nick = tokens.at(0);
             host = tokens.at(1);
         }
         if (nick != "" && nick.find("!") != std::string::npos)
         {
-            split(tokens, nick, '!');
+            tokens = split(nick, '!');
             nick = tokens.at(0);
             user = tokens.at(1);
         }
