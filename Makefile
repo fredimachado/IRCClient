@@ -1,11 +1,11 @@
 CC=g++
 CFLAGS=-c -Wall
-LDFLAGS=-lws2_32
+LDFLAGS=
 SOURCE_DIR=src
 SOURCE_FILES=$(wildcard $(SOURCE_DIR)/*.cpp)
 OBJECTS=$(SOURCE_FILES:.cpp=.o)
 BUILD_DIR=bin
-EXECUTABLE=ircclient.exe
+EXECUTABLE=ircclient
 
 all: $(SOURCE_FILES) $(EXECUTABLE)
 	
