@@ -27,6 +27,14 @@ void signalHandler(int signal)
     running = false;
 }
 
+// Join #myircclient channel right after successful logged in
+int onLoggedIn(IRCMessage message, void* client)
+{
+    ((IRCClient*)client)->SendIRC("JOIN #myircclient");
+
+    return 0;
+}
+
 int onPrivMsg(IRCMessage message, void* client)
 {
     if (message.prefix.nick != "Fredi")
@@ -64,6 +72,9 @@ int main(int argc, char* argv[])
 
     IRCClient client;
 
+    // Hook command 001
+    client.HookIRCCommand("001", &onLoggedIn);
+    // Hook PRIVMSG
     client.HookIRCCommand("PRIVMSG", &onPrivMsg);
 
     if (client.InitSocket())
