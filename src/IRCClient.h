@@ -94,7 +94,6 @@ public:
 
 private:
     void CallHook(std::string /*command*/, IRCMessage /*message*/);
-	void DeleteIRCCommandHook(IRCCommandHook /*hook*/);
 
     IRCSocket _socket;
 
