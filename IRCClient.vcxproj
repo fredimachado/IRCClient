@@ -64,10 +64,12 @@
     <ClCompile Include="src\IRCClient.cpp" />
     <ClCompile Include="src\IRCSocket.cpp" />
     <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\Thread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\IRCClient.h" />
     <ClInclude Include="src\IRCSocket.h" />
+    <ClInclude Include="src\Thread.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -28,5 +28,5 @@ Simple console IRC Client writen in C++
 Building on windows with Mingw:
 
 - Edit Makefile
-- Add "-lws2_32" (no quotes) to LDFLAGS on line 3.
+- Replace "-lpthread" with "-lws2_32" (no quotes) in LDFLAGS on line 3.
 - Add ".exe" extension (no quotes) to the EXECUTABLE filename (line 8).
