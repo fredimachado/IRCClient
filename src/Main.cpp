@@ -18,6 +18,7 @@
 #include <iostream>
 #include <signal.h>
 #include <cstdlib>
+#include <process.h>
 #include "IRCClient.h"
 
 volatile bool running;
@@ -52,6 +53,21 @@ int onPrivMsg(IRCMessage message, void* client)
     return 0;
 }
 
+void inputThread(void* client)
+{
+    std::string command;
+
+    while(true)
+    {
+        getline(std::cin, command);
+        ((IRCClient*)client)->SendIRC(command);
+        if (command == "quit")
+            break;
+    }
+
+    _endthread();
+}
+
 int main(int argc, char* argv[])
 {
     if (argc < 3)
@@ -76,6 +92,9 @@ int main(int argc, char* argv[])
     client.HookIRCCommand("001", &onLoggedIn);
     // Hook PRIVMSG
     client.HookIRCCommand("PRIVMSG", &onPrivMsg);
+
+    // Start the input thread
+    _beginthread(inputThread, 0, (void*)&client);
 
     if (client.InitSocket())
     {
