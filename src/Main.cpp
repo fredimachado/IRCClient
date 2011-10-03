@@ -29,14 +29,14 @@ void signalHandler(int signal)
 }
 
 // Join #myircclient channel right after successful logged in
-int onLoggedIn(IRCMessage message, void* client)
+int onLoggedIn(IRCMessage message, IRCClient* client)
 {
-    ((IRCClient*)client)->SendIRC("JOIN #myircclient");
+    client->SendIRC("JOIN #myircclient");
 
     return 0;
 }
 
-int onPrivMsg(IRCMessage message, void* client)
+int onPrivMsg(IRCMessage message, IRCClient* client)
 {
     if (message.prefix.nick != "Fredi")
         return 1;
@@ -44,11 +44,11 @@ int onPrivMsg(IRCMessage message, void* client)
     std::string text = message.parameters.at(message.parameters.size() - 1);
 
     if (text == "enter channel")
-        ((IRCClient*)client)->SendIRC("JOIN #myircclient");
+        client->SendIRC("JOIN #myircclient");
     if (text == "leave channel")
-        ((IRCClient*)client)->SendIRC("PART #myircclient");
+        client->SendIRC("PART #myircclient");
     if (text == "quit now")
-        ((IRCClient*)client)->SendIRC("QUIT :Bye bye!");
+        client->SendIRC("QUIT :Bye bye!");
 
     return 0;
 }
