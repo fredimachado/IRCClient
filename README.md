@@ -23,7 +23,7 @@ Copyright (C) Fredi Machado (https://github.com/Fredi)
 - Example in Main.cpp
 
 ####Hooking IRC commands:
-First create a function with this two arguments:
+First create a function (name it whatever you want) with two arguments, an IRCMessage and a pointer to IRCClient:
 
 ```cpp
 int onPrivMsg(IRCMessage message, IRCClient* client)
