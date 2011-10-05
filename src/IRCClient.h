@@ -34,7 +34,7 @@ struct IRCCommandPrefix
         if (data == "")
             return;
 
-        prefix = data.substr(1, data.find(" "));
+        prefix = data.substr(1, data.find(" ") - 1);
         std::vector<std::string> tokens;
 
         if (prefix.find("@") != std::string::npos)
