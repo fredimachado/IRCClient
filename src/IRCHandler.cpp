@@ -19,6 +19,7 @@
 
 IRCCommandHandler ircCommandTable[NUM_IRC_CMDS] =
 {
+    { "PING",               &IRCClient::HandleServerPing                },
     { "PRIVMSG",            &IRCClient::HandlePrivMsg                   },
     { "NOTICE",             &IRCClient::HandlePrivMsg                   },
     { "JOIN",               &IRCClient::HandleChannelJoinPart           },
@@ -61,6 +62,12 @@ bool IRCClient::HandleCTCP(IRCMessage message)
     }
 
     return false; // not handled
+}
+
+void IRCClient::HandleServerPing(IRCMessage message)
+{
+    std::cout << "Ping? Pong!" << std::endl;
+    SendIRC("PONG :" + message.parameters.at(0));
 }
 
 void IRCClient::HandlePrivMsg(IRCMessage message)
