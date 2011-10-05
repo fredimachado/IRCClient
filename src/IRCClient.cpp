@@ -158,7 +158,7 @@ void IRCClient::Parse(std::string data)
     std::cout << original << std::endl;
 }
 
-void IRCClient::HookIRCCommand(std::string command, int (*function)(IRCMessage /*message*/, IRCClient* /*client*/))
+void IRCClient::HookIRCCommand(std::string command, void (*function)(IRCMessage /*message*/, IRCClient* /*client*/))
 {
     IRCCommandHook hook;
 
