@@ -26,11 +26,11 @@ Copyright (C) Fredi Machado (https://github.com/Fredi)
 First create a function (name it whatever you want) with two arguments, an IRCMessage and a pointer to IRCClient:
 
 ```cpp
-int onPrivMsg(IRCMessage message, IRCClient* client)
+void onPrivMsg(IRCMessage message, IRCClient* client)
 {
-    // Check who sent the message
+    // Check who can "control" us
     if (message.prefix.nick != "YourNick")
-        return 1;
+        return;
     
     // received text
     std::string text = message.parameters.at(message.parameters.size() - 1);
@@ -41,8 +41,6 @@ int onPrivMsg(IRCMessage message, IRCClient* client)
         client->SendIRC("PART #channel");
     if (text == "quit now")
         client->SendIRC("QUIT");
-    
-    return 0;
 }
 ```
 
