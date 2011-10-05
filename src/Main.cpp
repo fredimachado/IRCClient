@@ -88,6 +88,8 @@ int main(int argc, char* argv[])
 
     IRCClient client;
 
+    client.Debug(true);
+
     // Hook command 001
     client.HookIRCCommand("001", &onLoggedIn);
     // Hook PRIVMSG

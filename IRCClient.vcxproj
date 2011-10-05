@@ -62,12 +62,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\IRCClient.cpp" />
+    <ClCompile Include="src\IRCHandler.cpp" />
     <ClCompile Include="src\IRCSocket.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\Thread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\IRCClient.h" />
+    <ClInclude Include="src\IRCHandler.h" />
     <ClInclude Include="src\IRCSocket.h" />
     <ClInclude Include="src\Thread.h" />
   </ItemGroup>

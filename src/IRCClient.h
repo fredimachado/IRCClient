@@ -79,6 +79,8 @@ struct IRCCommandHook
 class IRCClient
 {
 public:
+    IRCClient() : _debug(false) {};
+
     bool InitSocket();
     bool Connect(char* /*host*/, int /*port*/);
     void Disconnect();
@@ -94,6 +96,19 @@ public:
 
     void Parse(std::string /*data*/);
 
+    bool HandleCTCP(IRCMessage /*message*/);
+
+    // Default internal handlers
+    void HandlePrivMsg(IRCMessage /*message*/);
+    void HandleChannelJoinPart(IRCMessage /*message*/);
+    void HandleUserNickChange(IRCMessage /*message*/);
+    void HandleUserQuit(IRCMessage /*message*/);
+    void HandleChannelNamesList(IRCMessage /*message*/);
+    void HandleNicknameInUse(IRCMessage /*message*/);
+    void HandleServerMessage(IRCMessage /*message*/);
+
+    void Debug(bool debug) { _debug = debug; };
+
 private:
     void HandleCommand(IRCMessage /*message*/);
     void CallHook(std::string /*command*/, IRCMessage /*message*/);
@@ -104,6 +119,8 @@ private:
 
     std::string _nick;
     std::string _user;
+
+    bool _debug;
 };
 
 #endif
