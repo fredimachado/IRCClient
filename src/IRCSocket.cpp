@@ -102,6 +102,7 @@ void IRCSocket::Disconnect()
         shutdown(_socket, 2);
         #endif
         closesocket(_socket);
+        _connected = false;
     }
 }
 
@@ -125,10 +126,7 @@ std::string IRCSocket::ReceiveData()
     if (bytes > 0)
         return std::string(buffer);
     else
-    {
-        std::cout << "recv failed." << std::endl;
-        _connected = false;
-    }
+        Disconnect();
 
     return "";
 }
