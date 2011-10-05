@@ -118,7 +118,9 @@ int main(int argc, char* argv[])
                     client.ReceiveData();
             }
 
-            client.Disconnect();
+            if (client.Connected())
+                client.Disconnect();
+
             std::cout << "Disconnected." << std::endl;
         }
     }
