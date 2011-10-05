@@ -123,15 +123,10 @@ std::string IRCSocket::ReceiveData()
     int bytes = recv(_socket, buffer, MAXDATASIZE - 1, 0);
 
     if (bytes > 0)
-    {
-        std::cout << "Bytes received: " << bytes << std::endl;
-
         return std::string(buffer);
-    }
     else
     {
         std::cout << "recv failed." << std::endl;
-
         _connected = false;
     }
 
