@@ -127,6 +127,7 @@ void IRCClient::Parse(std::string data)
 
     if (command == "ERROR")
     {
+        std::cout << original << std::endl;
         Disconnect();
         return;
     }
