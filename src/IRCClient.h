@@ -99,7 +99,6 @@ public:
     bool HandleCTCP(IRCMessage /*message*/);
 
     // Default internal handlers
-    void HandleServerPing(IRCMessage /*message*/);
     void HandlePrivMsg(IRCMessage /*message*/);
     void HandleChannelJoinPart(IRCMessage /*message*/);
     void HandleUserNickChange(IRCMessage /*message*/);

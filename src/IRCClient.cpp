@@ -132,6 +132,13 @@ void IRCClient::Parse(std::string data)
         return;
     }
 
+    if (command == "PING")
+    {
+        std::cout << "Ping? Pong!" << std::endl;
+        SendIRC("PONG :" + parameters.at(0));
+        return;
+    }
+
     IRCMessage ircMessage(command, cmdPrefix, parameters);
 
     // Default handler
