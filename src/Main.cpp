@@ -28,27 +28,6 @@ void signalHandler(int signal)
     running = false;
 }
 
-// Join #myircclient channel right after successful logged in
-void onLoggedIn(IRCMessage message, IRCClient* client)
-{
-    client->SendIRC("JOIN #myircclient");
-}
-
-void onPrivMsg(IRCMessage message, IRCClient* client)
-{
-    if (message.prefix.nick != "Fredi")
-        return;
-
-    std::string text = message.parameters.at(message.parameters.size() - 1);
-
-    if (text == "enter channel")
-        client->SendIRC("JOIN #myircclient");
-    if (text == "leave channel")
-        client->SendIRC("PART #myircclient");
-    if (text == "quit now")
-        client->SendIRC("QUIT :Bye bye!");
-}
-
 ThreadReturn inputThread(void* client)
 {
     std::string command;
@@ -89,11 +68,6 @@ int main(int argc, char* argv[])
     IRCClient client;
 
     client.Debug(true);
-
-    // Hook command 001
-    client.HookIRCCommand("001", &onLoggedIn);
-    // Hook PRIVMSG
-    client.HookIRCCommand("PRIVMSG", &onPrivMsg);
 
     // Start the input thread
     Thread thread;
