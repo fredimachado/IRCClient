@@ -56,7 +56,7 @@ bool IRCClient::HandleCTCP(IRCMessage message)
     {
         if (text == "\001VERSION\001") // Respond to CTCP VERSION and return true (handled)
         {
-            SendIRC("PRIVMSG " + message.prefix.nick + " :\001VERSION IRCClient by Fredi Machado - https://github.com/Fredi/IRCClient \001");
+            SendIRC("NOTICE " + message.prefix.nick + " :\001VERSION IRCClient by Fredi Machado - https://github.com/Fredi/IRCClient \001");
             return true;
         }
     }
