@@ -56,13 +56,13 @@ void IRCClient::HandleCTCP(IRCMessage message)
     // Remove '\001' from start/end of the string
     text = text.substr(1, text.size() - 2);
 
-    std::cout << message.prefix.nick << " requested CTCP " << text << std::endl;
+    std::cout << "[" + message.prefix.nick << " requested CTCP " << text << "]" << std::endl;
 
     if (to == _nick)
     {
         if (text == "VERSION") // Respond to CTCP VERSION
         {
-            SendIRC("NOTICE " + message.prefix.nick + " :\001VERSION IRCClient by Fredi Machado - https://github.com/Fredi/IRCClient \001");
+            SendIRC("NOTICE " + message.prefix.nick + " :\001VERSION Open source IRC client by Fredi Machado - https://github.com/Fredi/IRCClient \001");
             return;
         }
 
@@ -93,7 +93,20 @@ void IRCClient::HandleNotice(IRCMessage message)
 {
     std::string from = message.prefix.nick != "" ? message.prefix.nick : message.prefix.prefix;
     std::string text = message.parameters.at(message.parameters.size() - 1);
-    std::cout << "-" << from << "- " << text << std::endl;
+
+    if (text[0] == '\001')
+    {
+        text = text.substr(1, text.size() - 2);
+        if (text.find(" ") == std::string::npos)
+        {
+            std::cout << "[Invalid " << text << " reply from " << from << "]" << std::endl;
+            return;
+        }
+        std::string ctcp = text.substr(0, text.find(" "));
+        std::cout << "[" << from << " " << ctcp << " reply]: " << text.substr(text.find(" ") + 1) << std::endl;
+    }
+    else
+        std::cout << "-" << from << "- " << text << std::endl;
 }
 
 void IRCClient::HandleChannelJoinPart(IRCMessage message)
