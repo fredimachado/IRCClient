@@ -44,7 +44,8 @@ IRCCommandHandler ircCommandTable[NUM_IRC_CMDS] =
     { "366",                &IRCClient::HandleServerMessage             },
     { "372",                &IRCClient::HandleServerMessage             },
     { "375",                &IRCClient::HandleServerMessage             },
-    { "376",                &IRCClient::HandleServerMessage             }
+    { "376",                &IRCClient::HandleServerMessage             },
+    { "439",                &IRCClient::HandleServerMessage             },
 };
 
 void IRCClient::HandleCTCP(IRCMessage message)
