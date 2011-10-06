@@ -20,6 +20,7 @@
 IRCCommandHandler ircCommandTable[NUM_IRC_CMDS] =
 {
     { "PRIVMSG",            &IRCClient::HandlePrivMsg                   },
+    { "NOTICE",             &IRCClient::HandleNotice                    },
     { "NOTICE",             &IRCClient::HandlePrivMsg                   },
     { "JOIN",               &IRCClient::HandleChannelJoinPart           },
     { "PART",               &IRCClient::HandleChannelJoinPart           },
@@ -46,46 +47,52 @@ IRCCommandHandler ircCommandTable[NUM_IRC_CMDS] =
     { "376",                &IRCClient::HandleServerMessage             }
 };
 
-bool IRCClient::HandleCTCP(IRCMessage message)
+void IRCClient::HandleCTCP(IRCMessage message)
 {
     std::string to = message.parameters.at(0);
     std::string text = message.parameters.at(message.parameters.size() - 1);
 
+    // Remove '\001' from start/end of the string
+    text = text.substr(1, text.size() - 2);
+
+    std::cout << message.prefix.nick << " requested CTCP " << text << std::endl;
+
     if (to == _nick)
     {
-        if (text == "\001VERSION\001") // Respond to CTCP VERSION and return true (handled)
+        if (text == "VERSION") // Respond to CTCP VERSION
         {
             SendIRC("NOTICE " + message.prefix.nick + " :\001VERSION IRCClient by Fredi Machado - https://github.com/Fredi/IRCClient \001");
-            return true;
+            return;
         }
+
+        // CTCP not implemented
+        SendIRC("NOTICE " + message.prefix.nick + " :\001ERRMSG " + text + " :Not implemented\001");
     }
-
-    return false; // not handled
 }
-
 
 void IRCClient::HandlePrivMsg(IRCMessage message)
 {
-    if (message.command == "NOTICE" && message.prefix.nick == "")
+    std::string to = message.parameters.at(0);
+    std::string text = message.parameters.at(message.parameters.size() - 1);
+
+    // Handle Client-To-Client Protocol
+    if (text[0] == '\001')
     {
-        std::cout << "-" << message.prefix.prefix << "- " << message.parameters.at(message.parameters.size() - 1) << std::endl;
+        HandleCTCP(message);
         return;
     }
 
-    if (message.command == "PRIVMSG" || message.command == "NOTICE")
-    {
-        std::string to = message.parameters.at(0);
-        std::string text = message.parameters.at(message.parameters.size() - 1);
+    if (to[0] == '#')
+        std::cout << "From " + message.prefix.nick << " @ " + to + ": " << text << std::endl;
+    else
+        std::cout << "From " + message.prefix.nick << ": " << text << std::endl;
+}
 
-        // Handle Client-To-Client Protocol
-        if (text[0] == '\001' && HandleCTCP(message))
-            return;
-
-        if (to[0] == '#')
-            std::cout << to << " <" << message.prefix.nick << "> " << text << std::endl;
-        else
-            std::cout << "<" << message.prefix.nick << "> " << text << std::endl;
-    }
+void IRCClient::HandleNotice(IRCMessage message)
+{
+    std::string from = message.prefix.nick != "" ? message.prefix.nick : message.prefix.prefix;
+    std::string text = message.parameters.at(message.parameters.size() - 1);
+    std::cout << "-" << from << "- " << text << std::endl;
 }
 
 void IRCClient::HandleChannelJoinPart(IRCMessage message)
