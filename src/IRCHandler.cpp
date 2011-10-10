@@ -21,7 +21,6 @@ IRCCommandHandler ircCommandTable[NUM_IRC_CMDS] =
 {
     { "PRIVMSG",            &IRCClient::HandlePrivMsg                   },
     { "NOTICE",             &IRCClient::HandleNotice                    },
-    { "NOTICE",             &IRCClient::HandlePrivMsg                   },
     { "JOIN",               &IRCClient::HandleChannelJoinPart           },
     { "PART",               &IRCClient::HandleChannelJoinPart           },
     { "NICK",               &IRCClient::HandleUserNickChange            },
