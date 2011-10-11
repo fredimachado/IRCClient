@@ -21,6 +21,10 @@
 
 #define MAXDATASIZE 4096
 
+IRCSocket::IRCSocket() : _socket(0) {};
+
+IRCSocket::IRCSocket(int s) : _socket(s) {};
+
 bool IRCSocket::Init()
 {
     #ifdef _WIN32
@@ -129,4 +133,47 @@ std::string IRCSocket::ReceiveData()
         Disconnect();
 
     return "";
+}
+
+bool IRCSocket::Listen(int port, int connections, TypeSocket type)
+{
+    sockaddr_in sa;
+
+    memset(&sa, 0, sizeof(sa));
+
+    sa.sin_family = PF_INET;
+    sa.sin_port = htons(port);
+    _socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (_socket == INVALID_SOCKET)
+        return false;
+
+    if (type == NonBlockingSocket)
+    {
+        u_long arg = 1;
+        ioctlsocket(_socket, FIONBIO, &arg);
+    }
+
+    if (bind(_socket, (sockaddr*)&sa, sizeof(sockaddr_in)) == SOCKET_ERROR)
+    {
+        closesocket(_socket);
+        return false;
+    }
+
+    if (listen(_socket, connections) == SOCKET_ERROR)
+    {
+        closesocket(_socket);
+        return false;
+    }
+
+    return true;
+}
+
+int IRCSocket::Accept()
+{
+    int newSock = INVALID_SOCKET;
+
+    newSock = accept(_socket, 0, 0);
+
+    return newSock;
 }

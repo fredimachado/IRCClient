@@ -33,13 +33,25 @@
 #define INVALID_SOCKET -1
 #endif
 
+enum TypeSocket
+{
+    BlockingSocket,
+    NonBlockingSocket
+};
+
 class IRCSocket
 {
 public:
+    IRCSocket();
+    IRCSocket(int s);
+
     bool Init();
 
     bool Connect(char const* host, int port);
     void Disconnect();
+
+    bool Listen(int port, int connections, TypeSocket type = BlockingSocket);
+    int Accept();
 
     bool Connected() { return _connected; };
 
@@ -50,6 +62,14 @@ private:
     int _socket;
 
     bool _connected;
+};
+
+class SocketServer : public IRCSocket
+{
+public:
+    SocketServer(int port, int connections, TypeSocket = BlockingSocket);
+
+    IRCSocket* Accept();
 };
 
 #endif
