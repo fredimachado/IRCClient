@@ -1,4 +1,4 @@
-## C++ Console IRC Client
+## C++ Console IRC Client [![Build Status](https://travis-ci.org/Fredi/IRCClient.svg?branch=master)](https://travis-ci.org/Fredi/IRCClient)
 Copyright (c) 2011-2016, Fredi Machado (https://github.com/Fredi), All rights reserved.
 
 ####GNU LGPL
