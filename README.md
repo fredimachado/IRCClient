@@ -1,5 +1,9 @@
-## C++ Console IRC Client [![Build Status](https://travis-ci.org/Fredi/IRCClient.svg?branch=master)](https://travis-ci.org/Fredi/IRCClient)
+## C++ Console IRC Client
 Copyright (c) 2011-2016, Fredi Machado (https://github.com/Fredi), All rights reserved.
+
+Windows | Linux
+:------------: | :------------:
+[![Windows Build status](https://ci.appveyor.com/api/projects/status/pn55ra5fr2c1b6t7?svg=true)](https://ci.appveyor.com/project/Fredi/ircclient) | [![Linux Build Status](https://travis-ci.org/Fredi/IRCClient.svg?branch=master)](https://travis-ci.org/Fredi/IRCClient)
 
 ####GNU LGPL
 > IRCClient is free software; you can redistribute it and/or
