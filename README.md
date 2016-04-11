@@ -1,5 +1,5 @@
 ## C++ Console IRC Client
-Copyright (c) 2011-2014, Fredi Machado (https://github.com/Fredi), All rights reserved.
+Copyright (c) 2011-2016, Fredi Machado (https://github.com/Fredi), All rights reserved.
 
 ####GNU LGPL
 > IRCClient is free software; you can redistribute it and/or
@@ -15,6 +15,7 @@ Copyright (c) 2011-2014, Fredi Machado (https://github.com/Fredi), All rights re
 > http://www.gnu.org/licenses/lgpl.html
 
 ###Simple console IRC Client written in C++
+- It works on windows and linux
 - Can be used as an IRC bot
 - It has a simple hook system where you can do whatever you want  when
   receiving an IRC command.
