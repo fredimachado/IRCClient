@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
- * http://www.gnu.org/licenses/lgpl.html 
+ * http://www.gnu.org/licenses/lgpl.html
  */
 
 #ifndef _IRCHANDLER_H
@@ -28,7 +28,7 @@ struct IRCCommandHandler
 
 extern IRCCommandHandler ircCommandTable[NUM_IRC_CMDS];
 
-inline int const GetCommandHandler(std::string command)
+inline int GetCommandHandler(std::string command)
 {
     for (int i = 0; i < NUM_IRC_CMDS; ++i)
     {
