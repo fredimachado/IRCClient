@@ -89,9 +89,12 @@ void IRCClient::HandlePrivMsg(IRCMessage message)
 void IRCClient::HandleNotice(IRCMessage message)
 {
     std::string from = message.prefix.nick != "" ? message.prefix.nick : message.prefix.prefix;
-    std::string text = message.parameters.at(message.parameters.size() - 1);
+    std::string text;
 
-    if (text[0] == '\001')
+    if( !message.parameters.empty() )
+        text = message.parameters.at(message.parameters.size() - 1);
+
+    if (!text.empty() && text[0] == '\001')
     {
         text = text.substr(1, text.size() - 2);
         if (text.find(" ") == std::string::npos)
@@ -139,6 +142,9 @@ void IRCClient::HandleNicknameInUse(IRCMessage message)
 
 void IRCClient::HandleServerMessage(IRCMessage message)
 {
+    if( message.parameters.empty() )
+        return;
+
     std::vector<std::string>::const_iterator itr = message.parameters.begin();
     ++itr; // skip the first parameter (our nick)
     for (; itr != message.parameters.end(); ++itr)
