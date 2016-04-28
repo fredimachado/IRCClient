@@ -53,15 +53,19 @@ bool IRCClient::SendIRC(std::string data)
     return _socket.SendData(data.c_str());
 }
 
-bool IRCClient::Login(std::string nick, std::string user)
+bool IRCClient::Login(std::string nick, std::string user, std::string password)
 {
     _nick = nick;
     _user = user;
 
     if (SendIRC("HELLO"))
+    {
+        if (!password.empty() && !SendIRC("PASS "+password))
+            return false;
         if (SendIRC("NICK " + nick))
             if (SendIRC("USER " + user + " 8 * :Cpp IRC Client"))
                 return true;
+    }
 
     return false;
 }
