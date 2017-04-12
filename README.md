@@ -5,7 +5,7 @@ Windows | Linux
 :------------: | :------------:
 [![Windows Build status](https://ci.appveyor.com/api/projects/status/pn55ra5fr2c1b6t7?svg=true)](https://ci.appveyor.com/project/Fredi/ircclient) | [![Linux Build Status](https://travis-ci.org/Fredi/IRCClient.svg?branch=master)](https://travis-ci.org/Fredi/IRCClient)
 
-####GNU LGPL
+#### GNU LGPL
 > IRCClient is free software; you can redistribute it and/or
 > modify it under the terms of the GNU Lesser General Public
 > License as published by the Free Software Foundation; either
@@ -18,14 +18,14 @@ Windows | Linux
 >
 > http://www.gnu.org/licenses/lgpl.html
 
-###Simple console IRC Client written in C++
+### Simple console IRC Client written in C++
 - It works on windows and linux
 - Can be used as an IRC bot
 - It has a simple hook system where you can do whatever you want  when
   receiving an IRC command.
 - Example in Main.cpp
 
-####Hooking IRC commands:
+#### Hooking IRC commands:
 First create a function (name it whatever you want) with two arguments, an IRCMessage and a pointer to IRCClient:
 
 ```cpp
@@ -57,7 +57,7 @@ client.HookIRCCommand("PRIVMSG", &onPrivMsg);
 ```
 
 
-####Building on windows with Mingw:
+#### Building on windows with Mingw:
 
 - Edit Makefile
 - Replace "-lpthread" with "-lws2_32" (no quotes) in LDFLAGS on line 3.
