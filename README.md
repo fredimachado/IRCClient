@@ -1,12 +1,10 @@
-## C++ Console IRC Client
-Copyright (c) 2011-2016, Fredi Machado (https://github.com/Fredi), All rights reserved.
+## Simple cross-platform Console IRC Client
 
 Windows | Linux
 :------------: | :------------:
 [![Windows Build status](https://ci.appveyor.com/api/projects/status/pn55ra5fr2c1b6t7?svg=true)](https://ci.appveyor.com/project/Fredi/ircclient) | [![Linux Build Status](https://travis-ci.org/Fredi/IRCClient.svg?branch=master)](https://travis-ci.org/Fredi/IRCClient)
 
-## Simple console IRC Client written in C++
-- It works on windows and linux
+- It works on windows and linux (haven't tested on mac)
 - Can be used as an IRC bot
 - It has a simple hook system where you can do whatever you want  when
   receiving an IRC command.
