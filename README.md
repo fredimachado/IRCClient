@@ -2,7 +2,7 @@
 
 Windows | Linux
 :------------: | :------------:
-[![Windows Build status](https://ci.appveyor.com/api/projects/status/pn55ra5fr2c1b6t7?svg=true)](https://ci.appveyor.com/project/Fredi/ircclient) | [![Linux Build Status](https://travis-ci.org/fredimachado/IRCClient.svg?branch=master)](https://travis-ci.org/fredimachado/IRCClient)
+[![Windows Build status](https://ci.appveyor.com/api/projects/status/pn55ra5fr2c1b6t7?svg=true)](https://ci.appveyor.com/project/fredimachado/ircclient) | [![Linux Build Status](https://travis-ci.org/fredimachado/IRCClient.svg?branch=master)](https://travis-ci.org/fredimachado/IRCClient)
 
 - It works on windows and linux (haven't tested on mac)
 - Can be used as an IRC bot
