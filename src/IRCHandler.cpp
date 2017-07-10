@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Fredi Machado <https://github.com/Fredi>
+ * Copyright (C) 2011 Fredi Machado <https://github.com/fredimachado>
  * IRCClient is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -59,7 +59,7 @@ void IRCClient::HandleCTCP(IRCMessage message)
     {
         if (text == "VERSION") // Respond to CTCP VERSION
         {
-            SendIRC("NOTICE " + message.prefix.nick + " :\001VERSION Open source IRC client by Fredi Machado - https://github.com/Fredi/IRCClient \001");
+            SendIRC("NOTICE " + message.prefix.nick + " :\001VERSION Open source IRC client by Fredi Machado - https://github.com/fredimachado/IRCClient \001");
             return;
         }
 
