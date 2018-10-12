@@ -1,8 +1,8 @@
 ## Simple cross-platform Console IRC Client
 
-Windows | Linux
-:------------: | :------------:
-[![Windows Build status](https://ci.appveyor.com/api/projects/status/pn55ra5fr2c1b6t7?svg=true)](https://ci.appveyor.com/project/fredimachado/ircclient) | [![Linux Build Status](https://travis-ci.org/fredimachado/IRCClient.svg?branch=master)](https://travis-ci.org/fredimachado/IRCClient)
+Windows | Linux | Azure (Linux)
+:------------: | :------------: | :------------:
+[![Windows Build status](https://ci.appveyor.com/api/projects/status/pn55ra5fr2c1b6t7?svg=true)](https://ci.appveyor.com/project/fredimachado/ircclient) | [![Linux Build Status](https://travis-ci.org/fredimachado/IRCClient.svg?branch=master)](https://travis-ci.org/fredimachado/IRCClient) | [![Azure Build Status (Linux)](https://dev.azure.com/FrediMachado/IRCClient/_apis/build/status/fredimachado.IRCClient)](https://dev.azure.com/FrediMachado/IRCClient/_build/latest?definitionId=1)
 
 - It works on windows and linux (haven't tested on mac)
 - Can be used as an IRC bot
