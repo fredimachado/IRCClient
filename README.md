@@ -2,7 +2,7 @@
 
 [![Build](https://github.com/fredimachado/IRCClient/actions/workflows/ci.yml/badge.svg)](https://github.com/fredimachado/IRCClient/actions/workflows/ci.yml)
 
-- It works on windows and linux (haven't tested on mac)
+- It works on Windows, Linux, and macOS
 - Can be used as an IRC bot
 - It has a simple hook system where you can do whatever you want  when
   receiving an IRC command.
@@ -39,45 +39,37 @@ IRCClient client;
 client.HookIRCCommand("PRIVMSG", &onPrivMsg);
 ```
 
-### Building on Windows with Visual Studio
+### Building
 
-Install Visual Studio with the Desktop development with C++ workload, then
-open `IRCClient.sln` and build, or run this from a Developer PowerShell:
-
-```powershell
-msbuild .\IRCClient.sln /p:Configuration=Release
-```
-
-The executable is written to `Release\IRCClient.exe`.
-
-### Building with Make (Linux, macOS, or MinGW)
-
-On Linux or macOS:
+CMake 3.20 or newer and a C++20 compiler. From the repository root:
 
 ```sh
-make
+cmake --preset default && cmake --build --preset default && ctest --preset default
 ```
 
-On Windows with MinGW, install MSYS2 from PowerShell:
-
-```powershell
-winget install --id MSYS2.MSYS2 --exact
-```
-
-Open an MSYS2 UCRT64 terminal and install GCC and Make:
+The executable is `ircclient` on Unix and `ircclient.exe` on Windows:
 
 ```sh
-pacman -S --needed mingw-w64-ucrt-x86_64-gcc make
+ircclient host port [nick] [user] [password]
 ```
 
-From the repository directory:
+`nick` defaults to `MyIRCClient`, `user` defaults to `IRCClient`, and `password` is sent only when you pass it.
+
+### Sanitizers and coverage (Linux)
+
+These presets need Ninja. Do not combine them.
+
+AddressSanitizer and UndefinedBehaviorSanitizer:
 
 ```sh
-make
+cmake --preset linux-sanitizer && cmake --build --preset linux-sanitizer && ctest --preset linux-sanitizer
 ```
 
-The executable is `ircclient` on Unix and `ircclient.exe` on Windows. The
-Makefile links `ws2_32` automatically on Windows.
+Coverage instrumentation for `src/` (CI compares gcovr line and branch percentages against `cmake/coverage-baseline.json`):
+
+```sh
+cmake --preset linux-coverage && cmake --build --preset linux-coverage && ctest --preset linux-coverage
+```
 
 ## Contribution
 Just send a pull request! :)

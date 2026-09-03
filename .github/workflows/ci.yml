@@ -8,24 +8,77 @@ on:
 permissions:
   contents: read
 
+env:
+  CTEST_TIMEOUT: 180
+
 jobs:
-  unix:
-    name: ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  ubuntu-gcc:
+    name: Ubuntu GCC
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Build
-        run: make
+      - name: Configure
+        run: >
+          cmake --preset default
+          -DCMAKE_C_COMPILER=gcc
+          -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
 
-  windows:
-    name: windows-latest
+      - name: Build
+        run: cmake --build --preset default --parallel
+
+      - name: Test
+        run: ctest --preset default --output-on-failure --timeout ${{ env.CTEST_TIMEOUT }}
+
+  ubuntu-clang:
+    name: Ubuntu Clang
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure
+        run: >
+          cmake --preset default
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+
+      - name: Build
+        run: cmake --build --preset default --parallel
+
+      - name: Test
+        run: ctest --preset default --output-on-failure --timeout ${{ env.CTEST_TIMEOUT }}
+
+  macos:
+    name: macOS Apple Clang
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure
+        run: cmake --preset default -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+
+      - name: Build
+        run: cmake --build --preset default --parallel
+
+      - name: Test
+        run: ctest --preset default --output-on-failure --timeout ${{ env.CTEST_TIMEOUT }}
+
+  windows-mingw:
+    name: Windows MinGW UCRT64
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
     defaults:
       run:
         shell: msys2 {0}
@@ -38,7 +91,198 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          install: mingw-w64-ucrt-x86_64-gcc make
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
 
       - name: Build
-        run: make
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout ${{ env.CTEST_TIMEOUT }}
+
+  windows-msvc:
+    name: Windows MSVC x64
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure
+        run: cmake --preset default -A x64 -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+
+      - name: Build
+        run: cmake --build --preset default --parallel
+
+      - name: Test
+        run: ctest --preset default --output-on-failure --timeout ${{ env.CTEST_TIMEOUT }}
+
+  linux-sanitizer:
+    name: Linux ASan+UBSan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    env:
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure
+        run: cmake --preset linux-sanitizer -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+
+      - name: Build
+        run: cmake --build --preset linux-sanitizer --parallel
+
+      - name: Test
+        run: ctest --preset linux-sanitizer --output-on-failure --timeout ${{ env.CTEST_TIMEOUT }}
+
+  linux-coverage:
+    name: Linux coverage
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Ninja and Python venv
+        run: sudo apt-get update && sudo apt-get install -y ninja-build python3-venv
+
+      - name: Configure
+        run: cmake --preset linux-coverage -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+
+      - name: Build
+        run: cmake --build --preset linux-coverage --parallel
+
+      - name: Test
+        run: ctest --preset linux-coverage --output-on-failure --timeout ${{ env.CTEST_TIMEOUT }}
+
+      - name: Generate coverage reports and compare baseline
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/gcovr"
+          "${RUNNER_TEMP}/gcovr/bin/pip" install gcovr
+          GCOVR="${RUNNER_TEMP}/gcovr/bin/gcovr"
+          FILTER_ARGS=(
+            --root .
+            --filter 'src/'
+            --exclude '.*/tests/.*'
+            --exclude '.*/_deps/.*'
+            --exclude '.*/Catch2/.*'
+            --exclude '.*/catch2/.*'
+          )
+          "${GCOVR}" "${FILTER_ARGS[@]}" \
+            --txt coverage-line.txt \
+            --json-summary-pretty \
+            --json-summary coverage-summary.json
+          "${GCOVR}" "${FILTER_ARGS[@]}" \
+            --txt coverage-branch.txt \
+            --txt-metric branch
+          echo "=== line coverage ==="
+          cat coverage-line.txt
+          echo "=== branch coverage ==="
+          cat coverage-branch.txt
+          echo "=== json summary ==="
+          cat coverage-summary.json
+          python3 - <<'PY'
+          import json
+          import sys
+          from decimal import Decimal, InvalidOperation, ROUND_DOWN
+          from pathlib import Path
+
+          REPORT = Path("coverage-summary.json")
+          BASELINE = Path("cmake/coverage-baseline.json")
+          QUANTUM = Decimal("0.01")
+
+          def die(message):
+              print(f"coverage gate failed: {message}", file=sys.stderr)
+              sys.exit(1)
+
+          def load_object(path):
+              if not path.is_file():
+                  die(f"{path} is absent")
+              if path.stat().st_size == 0:
+                  die(f"{path} is empty")
+              text = path.read_text(encoding="utf-8")
+              if not text.strip():
+                  die(f"{path} is empty")
+              try:
+                  data = json.loads(text)
+              except json.JSONDecodeError as exc:
+                  die(f"{path} is malformed JSON: {exc}")
+              if not isinstance(data, dict):
+                  die(f"{path} is not a JSON object")
+              return data
+
+          def require_percent(data, key, source):
+              if key not in data:
+                  die(f"{source} is missing {key}")
+              value = data[key]
+              if isinstance(value, bool) or value is None:
+                  die(f"{source} {key} is missing or not a number")
+              if not isinstance(value, (int, float)):
+                  die(f"{source} {key} is not a number: {value!r}")
+              if value != value:
+                  die(f"{source} {key} is NaN")
+              try:
+                  return Decimal(str(value))
+              except InvalidOperation:
+                  die(f"{source} {key} is not a number: {value!r}")
+
+          def require_positive_int(data, key, source):
+              if key not in data:
+                  die(f"{source} is missing {key}")
+              value = data[key]
+              if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                  die(f"{source} {key} must be a positive integer (got {value!r})")
+              return value
+
+          report = load_object(REPORT)
+          baseline = load_object(BASELINE)
+          require_positive_int(report, "line_total", REPORT)
+          require_positive_int(report, "branch_total", REPORT)
+          measured_line = require_percent(report, "line_percent", REPORT)
+          measured_branch = require_percent(report, "branch_percent", REPORT)
+          baseline_line = require_percent(baseline, "line_percent", BASELINE)
+          baseline_branch = require_percent(baseline, "branch_percent", BASELINE)
+          line_floor = measured_line.quantize(QUANTUM, rounding=ROUND_DOWN)
+          branch_floor = measured_branch.quantize(QUANTUM, rounding=ROUND_DOWN)
+          print(
+              f"coverage line:   measured {measured_line} "
+              f"(stored 2dp floor {line_floor})  baseline {baseline_line}"
+          )
+          print(
+              f"coverage branch: measured {measured_branch} "
+              f"(stored 2dp floor {branch_floor})  baseline {baseline_branch}"
+          )
+          failed = False
+          if line_floor < baseline_line:
+              print(
+                  f"line coverage regression: {line_floor} < {baseline_line}",
+                  file=sys.stderr,
+              )
+              failed = True
+          if branch_floor < baseline_branch:
+              print(
+                  f"branch coverage regression: {branch_floor} < {baseline_branch}",
+                  file=sys.stderr,
+              )
+              failed = True
+          if failed:
+              sys.exit(1)
+          print("coverage gate passed")
+          PY

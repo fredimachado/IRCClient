@@ -15,3 +15,18 @@ Win32/
 *.log
 *.o
 *.exe
+kanban/
+
+# Out-of-tree CMake builds
+build/
+cmake-build-*
+CMakeUserPresets.json
+Testing/
+.cache
+
+# Coverage artifacts
+*.gcda
+*.gcno
+*.gcov
+coverage/
+*.info

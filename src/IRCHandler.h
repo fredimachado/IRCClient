@@ -20,6 +20,8 @@
 
 #define NUM_IRC_CMDS 26
 
+// Built-in handlers cover RFC 1459 / RFC 2812 commands only.
+// IRCv3 message tags and CAP negotiation are unsupported.
 struct IRCCommandHandler
 {
     std::string command;
@@ -37,6 +39,18 @@ inline int GetCommandHandler(std::string command)
     }
 
     return NUM_IRC_CMDS;
+}
+
+// Prefer the parsed nick. Nick-only prefixes such as ":alice" leave nick
+// empty, so fall back to the raw prefix. Server names contain a '.' and
+// are not treated as nicks for display or CTCP.
+inline std::string SenderName(IRCCommandPrefix const& prefix)
+{
+    if (!prefix.nick.empty())
+        return prefix.nick;
+    if (prefix.prefix.find('.') != std::string::npos)
+        return std::string();
+    return prefix.prefix;
 }
 
 #endif
