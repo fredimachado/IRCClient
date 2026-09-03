@@ -407,7 +407,14 @@ public:
     {
         NativeFd fd = lookup(socket);
         if (fd == kInvalidFd || buffer == nullptr)
+        {
+#ifdef _WIN32
+            t_last_error = WSAENOTSOCK;
+#else
+            t_last_error = EBADF;
+#endif
             return -1;
+        }
 
         const int n = native_recv(fd, buffer, length);
         if (n < 0)
@@ -424,6 +431,20 @@ public:
         const int rc = ::shutdown(fd, kShutdownBoth);
         if (rc != 0)
             record_native_error();
+
+#ifdef _WIN32
+        // shutdown() does not reliably unblock a blocking recv in another
+        // thread when the peer keeps the connection open. closesocket does.
+        // Drop the native fd from the table first so close() will not
+        // double-close a reused descriptor.
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto it = table_.find(socket);
+            if (it != table_.end() && it->second == fd)
+                it->second = kInvalidFd;
+        }
+        native_close(fd);
+#endif
         return rc;
     }
 
