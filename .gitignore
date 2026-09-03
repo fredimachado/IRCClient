@@ -5,3 +5,5 @@ Debug/*
 *.rej
 *.patch
 *.log
+*.o
+*.exe

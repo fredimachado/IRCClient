@@ -21,7 +21,10 @@
 
 #ifdef _WIN32
 #include <winsock2.h>
+#ifdef _MSC_VER
 #pragma comment(lib,"WS2_32")
+#endif
+typedef SOCKET SocketHandle;
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -31,6 +34,7 @@
 #define close(s)
 #define SOCKET_ERROR -1
 #define INVALID_SOCKET -1
+typedef int SocketHandle;
 #endif
 
 class IRCSocket
@@ -47,7 +51,7 @@ public:
     std::string ReceiveData();
 
 private:
-    int _socket;
+    SocketHandle _socket;
 
     bool _connected;
 };

@@ -1,6 +1,9 @@
 CC=g++
 CFLAGS=-c -Wall
 LDFLAGS=-lpthread
+ifeq ($(OS),Windows_NT)
+LDFLAGS+=-lws2_32
+endif
 SOURCE_DIR=src
 SOURCE_FILES=$(wildcard $(SOURCE_DIR)/*.cpp)
 OBJECTS=$(SOURCE_FILES:.cpp=.o)
@@ -16,4 +19,4 @@ $(EXECUTABLE): $(OBJECTS)
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	rm -rf $(SOURCE_DIR)/*.o $(EXECUTABLE)
+	rm -rf $(SOURCE_DIR)/*.o $(EXECUTABLE) $(EXECUTABLE).exe

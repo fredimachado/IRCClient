@@ -41,11 +41,28 @@ IRCClient client;
 client.HookIRCCommand("PRIVMSG", &onPrivMsg);
 ```
 
-### Building on windows with Mingw:
+### Building on Windows with MinGW
 
-- Edit Makefile
-- Replace "-lpthread" with "-lws2_32" (no quotes) in LDFLAGS on line 3.
-- Add ".exe" extension (no quotes) to the EXECUTABLE filename (line 8).
+Install MSYS2 from PowerShell:
+
+```powershell
+winget install --id MSYS2.MSYS2 --exact
+```
+
+Open an MSYS2 UCRT64 terminal and install GCC and Make:
+
+```sh
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc make
+```
+
+From the repository directory, build the client:
+
+```sh
+make
+```
+
+The executable is written to `ircclient.exe`. The Makefile adds the required
+Windows socket library automatically.
 
 ## Contribution
 Just send a pull request! :)
