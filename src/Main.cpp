@@ -29,12 +29,63 @@
 #include <mutex>
 #include <stop_token>
 #include <string>
+#if __has_include(<syncstream>)
 #include <syncstream>
+#endif
 #include <system_error>
 #include <thread>
 
 namespace
 {
+#if defined(__cpp_lib_syncbuf) && (__cpp_lib_syncbuf >= 201803L)
+    using SyncOStream = std::osyncstream;
+#else
+    class SyncOStream
+    {
+    public:
+        explicit SyncOStream(std::ostream& stream)
+            : stream_(stream), lock_(mutex_for(stream))
+        {
+        }
+
+        template <typename T>
+        SyncOStream& operator<<(T const& value)
+        {
+            stream_ << value;
+            return *this;
+        }
+
+        SyncOStream& operator<<(std::ostream& (*manipulator)(std::ostream&))
+        {
+            stream_ << manipulator;
+            return *this;
+        }
+
+        SyncOStream& operator<<(std::ios_base& (*manipulator)(std::ios_base&))
+        {
+            stream_ << manipulator;
+            return *this;
+        }
+
+    private:
+        static std::mutex& mutex_for(std::ostream& stream)
+        {
+            static std::mutex cout_mutex;
+            static std::mutex cerr_mutex;
+            static std::mutex other_mutex;
+
+            if (&stream == &std::cout)
+                return cout_mutex;
+            if (&stream == &std::cerr)
+                return cerr_mutex;
+            return other_mutex;
+        }
+
+        std::ostream& stream_;
+        std::lock_guard<std::mutex> lock_;
+    };
+#endif
+
     char ToLowerAscii(char ch)
     {
         return static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
@@ -120,7 +171,7 @@ public:
     {
         if (_commands.empty())
         {
-            std::osyncstream(std::cout) << "No commands available." << std::endl;
+            SyncOStream(std::cout) << "No commands available." << std::endl;
             return;
         }
 
@@ -142,14 +193,14 @@ public:
         auto const itr = _commands.find(name);
         if (itr == _commands.end())
         {
-            std::osyncstream(std::cout) << "Command not found." << std::endl;
+            SyncOStream(std::cout) << "Command not found." << std::endl;
             return;
         }
 
         std::ptrdiff_t const spaces = std::count(args.begin(), args.end(), ' ');
         if (spaces + 1 < static_cast<std::ptrdiff_t>(itr->second.argCount))
         {
-            std::osyncstream(std::cout) << "Insufficient arguments." << std::endl;
+            SyncOStream(std::cout) << "Insufficient arguments." << std::endl;
             return;
         }
 
@@ -173,7 +224,7 @@ void msgCommand(std::string arguments, IRCClient* client)
     std::string to = arguments.substr(0, arguments.find(' '));
     std::string text = arguments.substr(arguments.find(' ') + 1);
 
-    std::osyncstream(std::cout) << "To " + to + ": " + text << std::endl;
+    SyncOStream(std::cout) << "To " + to + ": " + text << std::endl;
     client->SendIRC("PRIVMSG " + to + " :" + text);
 }
 
@@ -211,7 +262,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 3)
     {
-        std::osyncstream(std::cerr)
+        SyncOStream(std::cerr)
             << "Insufficient parameters: host port [nick] [user] [password]" << std::endl;
         return 1;
     }
@@ -220,7 +271,7 @@ int main(int argc, char* argv[])
     int port = 0;
     if (!ParsePort(argv[2], port))
     {
-        std::osyncstream(std::cerr) << "Invalid port." << std::endl;
+        SyncOStream(std::cerr) << "Invalid port." << std::endl;
         return 1;
     }
 
@@ -240,34 +291,34 @@ int main(int argc, char* argv[])
 
     if (!client.InitSocket())
     {
-        std::osyncstream(std::cerr) << "Failed to initialize socket." << std::endl;
+        SyncOStream(std::cerr) << "Failed to initialize socket." << std::endl;
         return 1;
     }
 
-    std::osyncstream(std::cout) << "Socket initialized. Connecting..." << std::endl;
+    SyncOStream(std::cout) << "Socket initialized. Connecting..." << std::endl;
 
     if (!client.Connect(host, port))
     {
-        std::osyncstream(std::cerr) << "Failed to connect." << std::endl;
+        SyncOStream(std::cerr) << "Failed to connect." << std::endl;
         return 1;
     }
 
-    std::osyncstream(std::cout) << "Connected. Logging in..." << std::endl;
+    SyncOStream(std::cout) << "Connected. Logging in..." << std::endl;
 
     if (!client.Login(nick, user, password))
     {
-        std::osyncstream(std::cerr) << "Failed to log in." << std::endl;
+        SyncOStream(std::cerr) << "Failed to log in." << std::endl;
         if (client.Connected())
             client.Disconnect();
         return 1;
     }
 
-    std::osyncstream(std::cout) << "Logged." << std::endl;
+    SyncOStream(std::cout) << "Logged." << std::endl;
 
     ConsoleInput console;
     if (!console.valid())
     {
-        std::osyncstream(std::cerr) << "Failed to initialize console input." << std::endl;
+        SyncOStream(std::cerr) << "Failed to initialize console input." << std::endl;
         if (client.Connected())
             client.Disconnect();
         return 1;
@@ -301,7 +352,7 @@ int main(int argc, char* argv[])
     {
         if (client.Connected())
             client.Disconnect();
-        std::osyncstream(std::cerr) << "Failed to start receive thread." << std::endl;
+        SyncOStream(std::cerr) << "Failed to start receive thread." << std::endl;
         return 1;
     }
 
@@ -350,7 +401,7 @@ int main(int argc, char* argv[])
         console.request_stop();
         if (client.Connected())
             client.Disconnect();
-        std::osyncstream(std::cerr) << "Failed to start input thread." << std::endl;
+        SyncOStream(std::cerr) << "Failed to start input thread." << std::endl;
         return 1;
     }
 
@@ -376,6 +427,6 @@ int main(int argc, char* argv[])
     if (receive_worker.joinable())
         receive_worker.join();
 
-    std::osyncstream(std::cout) << "Disconnected." << std::endl;
+    SyncOStream(std::cout) << "Disconnected." << std::endl;
     return 0;
 }
