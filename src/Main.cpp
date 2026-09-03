@@ -14,16 +14,18 @@
  */
 
 #include "ConsoleInput.h"
+#include "ConsoleInterrupt.h"
 #include "IRCClient.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <condition_variable>
 #include <cstddef>
-#include <csignal>
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <mutex>
 #include <stop_token>
 #include <string>
 #include <syncstream>
@@ -67,15 +69,37 @@ namespace
         return command == "/quit" || command.rfind("/quit ", 0) == 0;
     }
 
-    volatile std::sig_atomic_t g_interrupted = 0;
-    ConsoleInput* g_console = nullptr;
-
-    void OnSigInt(int /*signal*/)
+    class ShutdownCoordinator
     {
-        g_interrupted = 1;
-        if (g_console != nullptr)
-            g_console->request_stop();
-    }
+    public:
+        void request()
+        {
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                if (requested_)
+                    return;
+                requested_ = true;
+            }
+            cv_.notify_all();
+        }
+
+        void wait()
+        {
+            std::unique_lock<std::mutex> lock(mutex_);
+            cv_.wait(lock, [this] { return requested_; });
+        }
+
+        [[nodiscard]] bool requested() const
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            return requested_;
+        }
+
+    private:
+        mutable std::mutex mutex_;
+        std::condition_variable cv_;
+        bool requested_ = false;
+    };
 }
 
 class ConsoleCommandHandler
@@ -253,24 +277,26 @@ int main(int argc, char* argv[])
     commandHandler.AddCommand("part", 1, &partCommand);
     commandHandler.AddCommand("ctcp", 2, &ctcpCommand);
 
-    g_console = &console;
-    std::signal(SIGINT, OnSigInt);
+    ShutdownCoordinator shutdown;
+    ConsoleInterrupt interrupt([&shutdown, &console] {
+        shutdown.request();
+        console.request_stop();
+    });
 
     std::jthread receive_worker;
     std::jthread input_worker;
 
     try
     {
-        receive_worker = std::jthread([&client, &console] {
-            while (client.Connected() && g_interrupted == 0)
+        receive_worker = std::jthread([&client, &console, &shutdown] {
+            while (client.Connected() && !shutdown.requested())
                 client.ReceiveData();
+            shutdown.request();
             console.request_stop();
         });
     }
     catch (std::system_error const&)
     {
-        g_console = nullptr;
-        std::signal(SIGINT, SIG_DFL);
         if (client.Connected())
             client.Disconnect();
         std::osyncstream(std::cerr) << "Failed to start receive thread." << std::endl;
@@ -279,57 +305,70 @@ int main(int argc, char* argv[])
 
     try
     {
-        input_worker = std::jthread([&client, &console](std::stop_token stop) {
+        input_worker = std::jthread([&client, &console, &shutdown](std::stop_token stop) {
             std::stop_callback wake_on_stop(stop, [&console] { console.request_stop(); });
 
-            while (!stop.stop_requested() && !console.stop_requested())
+            while (!stop.stop_requested() && !console.stop_requested() && !shutdown.requested())
             {
                 ConsoleInput::ReadResult const input = console.read_line();
-                if (input.status == ConsoleInput::Status::Stopped)
+                if (input.status == ConsoleInput::Status::Stopped
+                    || input.status == ConsoleInput::Status::Error)
+                {
+                    shutdown.request();
                     break;
-                if (input.status == ConsoleInput::Status::Error)
-                    break;
+                }
                 if (input.status == ConsoleInput::Status::Eof)
+                {
+                    shutdown.request();
+                    if (client.Connected())
+                        client.SendIRC("QUIT");
                     break;
+                }
                 if (input.line.empty())
                     continue;
 
                 if (IsQuitCommand(input.line))
+                {
+                    shutdown.request();
+                    if (client.Connected())
+                        client.SendIRC("QUIT");
                     break;
+                }
 
                 if (input.line.front() == '/')
                     commandHandler.ParseCommand(input.line, &client);
                 else
                     client.SendIRC(input.line);
             }
+
+            shutdown.request();
         });
     }
     catch (std::system_error const&)
     {
+        shutdown.request();
         console.request_stop();
         if (client.Connected())
             client.Disconnect();
-        g_console = nullptr;
-        std::signal(SIGINT, SIG_DFL);
         std::osyncstream(std::cerr) << "Failed to start input thread." << std::endl;
         return 1;
     }
 
-    if (input_worker.joinable())
-        input_worker.join();
-
-    if (client.Connected())
-    {
-        client.SendIRC("QUIT");
-        client.Disconnect();
-    }
+    shutdown.wait();
 
     console.request_stop();
+    if (input_worker.joinable())
+        input_worker.request_stop();
+    if (receive_worker.joinable())
+        receive_worker.request_stop();
+
+    if (client.Connected())
+        client.Disconnect();
+
+    if (input_worker.joinable())
+        input_worker.join();
     if (receive_worker.joinable())
         receive_worker.join();
-
-    g_console = nullptr;
-    std::signal(SIGINT, SIG_DFL);
 
     std::osyncstream(std::cout) << "Disconnected." << std::endl;
     return 0;

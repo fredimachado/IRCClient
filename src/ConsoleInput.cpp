@@ -15,8 +15,9 @@
 
 #include "ConsoleInput.h"
 
-#include <csignal>
+#include <atomic>
 #include <cstddef>
+#include <mutex>
 #include <string>
 
 #ifdef _WIN32
@@ -86,7 +87,7 @@ void set_nonblock(int fd)
 
 struct ConsoleInput::Impl
 {
-    volatile std::sig_atomic_t stop_flag = 0;
+    std::atomic<bool> stop_flag{false};
     bool ready = false;
     std::string buffer;
 
@@ -94,6 +95,7 @@ struct ConsoleInput::Impl
     HANDLE wake_event = nullptr;
     HANDLE stdin_handle = INVALID_HANDLE_VALUE;
     HANDLE reader_thread = nullptr;
+    std::mutex reader_mutex;
     DWORD stdin_type = FILE_TYPE_UNKNOWN;
 
     enum class PipeReadStatus
@@ -103,8 +105,14 @@ struct ConsoleInput::Impl
         Finished
     };
 
+    [[nodiscard]] bool stopped() const
+    {
+        return stop_flag.load(std::memory_order_acquire);
+    }
+
     void bind_reader_thread()
     {
+        std::lock_guard<std::mutex> lock(reader_mutex);
         if (reader_thread != nullptr)
             return;
 
@@ -120,6 +128,13 @@ struct ConsoleInput::Impl
         {
             reader_thread = duplicated;
         }
+    }
+
+    void cancel_reader_io()
+    {
+        std::lock_guard<std::mutex> lock(reader_mutex);
+        if (reader_thread != nullptr)
+            CancelSynchronousIo(reader_thread);
     }
 
     ConsoleInput::ReadResult finish_eof()
@@ -166,7 +181,7 @@ struct ConsoleInput::Impl
             DWORD const err = GetLastError();
             if (err == ERROR_BROKEN_PIPE || err == ERROR_OPERATION_ABORTED)
             {
-                result = stop_flag != 0
+                result = stopped()
                     ? ConsoleInput::ReadResult{ConsoleInput::Status::Stopped, {}}
                     : finish_eof();
                 return PipeReadStatus::Finished;
@@ -185,12 +200,20 @@ struct ConsoleInput::Impl
 #else
     int wake_read = -1;
     int wake_write = -1;
+
+    [[nodiscard]] bool stopped() const
+    {
+        return stop_flag.load(std::memory_order_acquire);
+    }
 #endif
 
     ~Impl()
     {
 #ifdef _WIN32
-        close_handle(reader_thread);
+        {
+            std::lock_guard<std::mutex> lock(reader_mutex);
+            close_handle(reader_thread);
+        }
         close_handle(wake_event);
 #else
         close_fd(wake_read);
@@ -232,7 +255,7 @@ bool ConsoleInput::valid() const
 
 bool ConsoleInput::stop_requested() const
 {
-    return impl_ && impl_->stop_flag != 0;
+    return impl_ && impl_->stop_flag.load(std::memory_order_acquire);
 }
 
 void ConsoleInput::wake()
@@ -252,12 +275,10 @@ void ConsoleInput::request_stop()
 {
     if (!impl_)
         return;
-    impl_->stop_flag = 1;
+    impl_->stop_flag.store(true, std::memory_order_release);
     wake();
 #ifdef _WIN32
-    HANDLE const thread = impl_->reader_thread;
-    if (thread != nullptr)
-        CancelSynchronousIo(thread);
+    impl_->cancel_reader_io();
 #endif
 }
 
@@ -276,7 +297,7 @@ ConsoleInput::ReadResult ConsoleInput::read_line()
 
     for (;;)
     {
-        if (impl_->stop_flag != 0)
+        if (impl_->stopped())
         {
             result.status = Status::Stopped;
             return result;
@@ -293,7 +314,7 @@ ConsoleInput::ReadResult ConsoleInput::read_line()
         {
             HANDLE handles[2] = {impl_->stdin_handle, impl_->wake_event};
             DWORD const wait = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
-            if (impl_->stop_flag != 0)
+            if (impl_->stopped())
             {
                 result.status = Status::Stopped;
                 return result;
@@ -314,7 +335,7 @@ ConsoleInput::ReadResult ConsoleInput::read_line()
             if (!ReadFile(impl_->stdin_handle, buf, sizeof(buf), &n, nullptr))
             {
                 DWORD const err = GetLastError();
-                if (err == ERROR_OPERATION_ABORTED || impl_->stop_flag != 0)
+                if (err == ERROR_OPERATION_ABORTED || impl_->stopped())
                 {
                     result.status = Status::Stopped;
                     return result;
@@ -336,7 +357,7 @@ ConsoleInput::ReadResult ConsoleInput::read_line()
             if (read_status == Impl::PipeReadStatus::DataRead)
                 continue;
             DWORD const wait = WaitForSingleObject(impl_->wake_event, 25);
-            if (impl_->stop_flag != 0 || wait == WAIT_OBJECT_0)
+            if (impl_->stopped() || wait == WAIT_OBJECT_0)
             {
                 result.status = Status::Stopped;
                 return result;
@@ -348,7 +369,7 @@ ConsoleInput::ReadResult ConsoleInput::read_line()
         DWORD n = 0;
         if (!ReadFile(impl_->stdin_handle, buf, sizeof(buf), &n, nullptr))
         {
-            if (impl_->stop_flag != 0 || GetLastError() == ERROR_OPERATION_ABORTED)
+            if (impl_->stopped() || GetLastError() == ERROR_OPERATION_ABORTED)
             {
                 result.status = Status::Stopped;
                 return result;
@@ -375,7 +396,7 @@ ConsoleInput::ReadResult ConsoleInput::read_line()
             return result;
         }
 
-        if (impl_->stop_flag != 0 || (fds[1].revents & (POLLIN | POLLHUP | POLLERR)) != 0)
+        if (impl_->stopped() || (fds[1].revents & (POLLIN | POLLHUP | POLLERR)) != 0)
         {
             char drain[32];
             while (::read(impl_->wake_read, drain, sizeof(drain)) > 0)
