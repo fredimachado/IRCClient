@@ -10,51 +10,41 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
- * http://www.gnu.org/licenses/lgpl.html 
+ * http://www.gnu.org/licenses/lgpl.html
  */
 
 #ifndef _IRCSOCKET_H
 #define _IRCSOCKET_H
 
-#include <iostream>
-#include <sstream>
+#include "SocketOps.h"
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#ifdef _MSC_VER
-#pragma comment(lib,"WS2_32")
-#endif
-typedef SOCKET SocketHandle;
-#else
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#define closesocket(s) close(s)
-#define close(s)
-#define SOCKET_ERROR -1
-#define INVALID_SOCKET -1
-typedef int SocketHandle;
-#endif
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <string>
 
 class IRCSocket
 {
 public:
-    bool Init();
+    IRCSocket();
+    explicit IRCSocket(SocketOps& ops);
+    ~IRCSocket();
 
+    IRCSocket(const IRCSocket&) = delete;
+    IRCSocket& operator=(const IRCSocket&) = delete;
+    IRCSocket(IRCSocket&&) = delete;
+    IRCSocket& operator=(IRCSocket&&) = delete;
+
+    bool Init();
     bool Connect(char const* host, int port);
     void Disconnect();
-
-    bool Connected() { return _connected; };
-
+    bool Connected() const;
     bool SendData(char const* data);
     std::string ReceiveData();
 
 private:
-    SocketHandle _socket;
-
-    bool _connected;
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 #endif

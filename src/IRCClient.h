@@ -16,10 +16,14 @@
 #ifndef _IRCCLIENT_H
 #define _IRCCLIENT_H
 
+#include "IRCSocket.h"
+#include "SocketOps.h"
+
+#include <cstddef>
+#include <list>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <list>
-#include "IRCSocket.h"
 
 class IRCClient;
 
@@ -27,27 +31,9 @@ extern std::vector<std::string> split(std::string const&, char);
 
 struct IRCCommandPrefix
 {
-    void Parse(std::string data)
-    {
-        if (data == "")
-            return;
-
-        prefix = data.substr(1, data.find(" ") - 1);
-        std::vector<std::string> tokens;
-
-        if (prefix.find("@") != std::string::npos)
-        {
-            tokens = split(prefix, '@');
-            nick = tokens.at(0);
-            host = tokens.at(1);
-        }
-        if (nick != "" && nick.find("!") != std::string::npos)
-        {
-            tokens = split(nick, '!');
-            nick = tokens.at(0);
-            user = tokens.at(1);
-        }
-    };
+    // Returns false and clears all fields when the prefix is missing or
+    // malformed. Do not read nick, user, or host after a failed parse.
+    bool Parse(std::string data);
 
     std::string prefix;
     std::string nick;
@@ -57,7 +43,7 @@ struct IRCCommandPrefix
 
 struct IRCMessage
 {
-    IRCMessage();
+    IRCMessage() = default;
     IRCMessage(std::string cmd, IRCCommandPrefix p, std::vector<std::string> params) :
         command(cmd), prefix(p), parameters(params) {};
 
@@ -77,7 +63,15 @@ struct IRCCommandHook
 class IRCClient
 {
 public:
+    // RFC 1459 section 2.3: a message shall not exceed 512 bytes, counting
+    // every character including the terminating CR-LF. This client uses that
+    // limit for inbound reassembly and for each outbound SendIRC line.
+    // IRCv3 message tags and CAP negotiation are unsupported; tagged lines
+    // and CAP traffic are ignored.
+    static constexpr std::size_t kMaxIrcFrameBytes = 512;
+
     IRCClient() : _debug(false) {};
+    explicit IRCClient(SocketOps& ops) : _socket(ops), _debug(false) {};
 
     bool InitSocket();
     bool Connect(char* /*host*/, int /*port*/);
@@ -86,6 +80,10 @@ public:
 
     bool SendIRC(std::string /*data*/);
 
+    // Registers with an optional PASS, then NICK, then USER. The three
+    // lines are sent in one write so other SendIRC callers cannot interleave
+    // them. USER keeps the form `USER <user> 8 * :Cpp IRC Client`
+    // (RFC 2812 mode 8 = invisible).
     bool Login(std::string /*nick*/, std::string /*user*/, std::string /*password*/ = std::string());
 
     void ReceiveData();
@@ -111,10 +109,15 @@ public:
 private:
     void HandleCommand(IRCMessage /*message*/);
     void CallHook(std::string /*command*/, IRCMessage /*message*/);
+    void ExtractFrames();
 
     IRCSocket _socket;
+    std::mutex _send_mutex;
 
     std::list<IRCCommandHook> _hooks;
+
+    std::string _inbound;
+    bool _discarding_overlong = false;
 
     std::string _nick;
     std::string _user;
