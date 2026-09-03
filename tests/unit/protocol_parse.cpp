@@ -1,4 +1,5 @@
 #include "IRCClient.h"
+#include "IRCHandler.h"
 #include "SocketOps.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -6,6 +7,8 @@
 #include <algorithm>
 #include <cstring>
 #include <deque>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -89,6 +92,17 @@ void ResetCapture()
 {
     g_seen.clear();
 }
+
+class CoutCapture
+{
+public:
+    CoutCapture() : old_(std::cout.rdbuf(buffer_.rdbuf())) {}
+    ~CoutCapture() { std::cout.rdbuf(old_); }
+
+private:
+    std::ostringstream buffer_;
+    std::streambuf* old_;
+};
 }
 
 TEST_CASE("default IRCClient constructor remains available")
@@ -167,6 +181,39 @@ TEST_CASE("malformed prefixes and commands do not crash and are skipped")
     REQUIRE(g_seen[0].prefix.nick == "n");
     REQUIRE(g_seen[0].prefix.user == "u");
     REQUIRE(g_seen[0].prefix.host == "h");
+    REQUIRE(SenderName(g_seen[0].prefix) == "n");
+}
+
+TEST_CASE("nick-only prefixes keep the raw prefix and leave nick empty")
+{
+    ResetCapture();
+    IRCClient client;
+    client.HookIRCCommand("PRIVMSG", &CaptureHook);
+    CoutCapture silence;
+
+    client.Parse(":alice PRIVMSG #room :hello");
+    REQUIRE(g_seen.size() == 1);
+    REQUIRE(g_seen[0].prefix.prefix == "alice");
+    REQUIRE(g_seen[0].prefix.nick.empty());
+    REQUIRE(g_seen[0].prefix.user.empty());
+    REQUIRE(g_seen[0].prefix.host.empty());
+    REQUIRE(SenderName(g_seen[0].prefix) == "alice");
+}
+
+TEST_CASE("server-name prefixes keep the raw prefix and leave nick empty")
+{
+    ResetCapture();
+    IRCClient client;
+    client.HookIRCCommand("PRIVMSG", &CaptureHook);
+    CoutCapture silence;
+
+    client.Parse(":irc.example.net PRIVMSG #room :hello");
+    REQUIRE(g_seen.size() == 1);
+    REQUIRE(g_seen[0].prefix.prefix == "irc.example.net");
+    REQUIRE(g_seen[0].prefix.nick.empty());
+    REQUIRE(g_seen[0].prefix.user.empty());
+    REQUIRE(g_seen[0].prefix.host.empty());
+    REQUIRE(SenderName(g_seen[0].prefix).empty());
 }
 
 TEST_CASE("malformed CTCP and short handler parameter lists do not crash")
