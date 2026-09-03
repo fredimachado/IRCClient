@@ -41,4 +41,16 @@ inline int GetCommandHandler(std::string command)
     return NUM_IRC_CMDS;
 }
 
+// Prefer the parsed nick. Nick-only prefixes such as ":alice" leave nick
+// empty, so fall back to the raw prefix. Server names contain a '.' and
+// are not treated as nicks for display or CTCP.
+inline std::string SenderName(IRCCommandPrefix const& prefix)
+{
+    if (!prefix.nick.empty())
+        return prefix.nick;
+    if (prefix.prefix.find('.') != std::string::npos)
+        return std::string();
+    return prefix.prefix;
+}
+
 #endif

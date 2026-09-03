@@ -43,12 +43,25 @@ public:
 
     int send(handle_type socket, const char* buffer, std::size_t length) override
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::unique_lock<std::mutex> lock(mutex_);
         ++send_count;
         if (closed_ || socket != live_handle_)
             ++ops_after_close;
         if (buffer == nullptr)
             return -1;
+
+        if (block_send)
+        {
+            send_waiting_ = true;
+            waiting_cv_.notify_all();
+            const bool woken = cv_.wait_for(lock, std::chrono::seconds{5}, [this] {
+                return shut_down_ || closed_ || !block_send;
+            });
+            send_waiting_ = false;
+            if (!woken || shut_down_ || closed_)
+                return -1;
+        }
+
         sent.append(buffer, length);
         return static_cast<int>(length);
     }
@@ -114,9 +127,25 @@ public:
         return waiting_cv_.wait_for(lock, timeout, [this] { return recv_waiting_; });
     }
 
+    bool wait_until_send_waiting(std::chrono::milliseconds timeout)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        return waiting_cv_.wait_for(lock, timeout, [this] { return send_waiting_; });
+    }
+
+    void unblock_send()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        block_send = false;
+        closed_ = true;
+        shut_down_ = true;
+        cv_.notify_all();
+    }
+
     int connect_result = 0;
     handle_type reuse_handle = invalid_handle;
     bool block_recv = true;
+    bool block_send = false;
 
     std::string sent;
     int create_count = 0;
@@ -137,6 +166,7 @@ private:
     bool closed_ = false;
     bool shut_down_ = false;
     bool recv_waiting_ = false;
+    bool send_waiting_ = false;
 };
 } // namespace
 
@@ -212,6 +242,58 @@ TEST_CASE("Disconnect wakes a blocked ReceiveData")
     REQUIRE_FALSE(socket.Connected());
     REQUIRE(ops.shutdown_count >= 1);
     REQUIRE(ops.close_count == 1);
+}
+
+TEST_CASE("Disconnect interrupts a blocked SendData")
+{
+    FakeSocketOps ops;
+    ops.block_send = true;
+    ops.block_recv = false;
+
+    IRCSocket socket(ops);
+    REQUIRE(socket.Init());
+    REQUIRE(socket.Connect("host", 6667));
+
+    std::atomic<bool> sender_done{false};
+    std::atomic<bool> send_ok{true};
+    std::atomic<bool> disconnect_done{false};
+    std::thread sender([&] {
+        send_ok = socket.SendData("payload");
+        sender_done = true;
+    });
+    std::thread stopper;
+
+    struct Cleanup
+    {
+        FakeSocketOps& ops;
+        std::thread& sender;
+        std::thread& stopper;
+        ~Cleanup()
+        {
+            ops.unblock_send();
+            if (sender.joinable())
+                sender.join();
+            if (stopper.joinable())
+                stopper.join();
+        }
+    } cleanup{ops, sender, stopper};
+
+    REQUIRE(ops.wait_until_send_waiting(std::chrono::seconds{2}));
+
+    stopper = std::thread([&] {
+        socket.Disconnect();
+        disconnect_done = true;
+    });
+
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{2};
+    while (!disconnect_done.load() && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+
+    REQUIRE(disconnect_done.load());
+    REQUIRE(sender_done.load());
+    REQUIRE_FALSE(send_ok);
+    REQUIRE_FALSE(socket.Connected());
+    REQUIRE(ops.shutdown_count >= 1);
 }
 
 TEST_CASE("closed handles are not used after descriptor reuse")

@@ -22,9 +22,9 @@
 // Interruptible stdin reader for interactive terminals and redirected pipes
 // on Windows and POSIX. A stop token is not enough: POSIX uses a self-pipe
 // and Windows waits on the console handle plus a wake event (with
-// CancelSynchronousIo on a blocking read). request_stop() / wake() only
-// touch a sig_atomic_t flag and the native wake primitive, so they can be
-// called from a SIGINT path. stdin EOF is a clean stop, not an error loop.
+// CancelSynchronousIo on a blocking read). request_stop() is idempotent,
+// thread-safe, and wakes a blocked read. stdin EOF is a clean stop, not
+// an error loop.
 class ConsoleInput
 {
 public:
@@ -55,7 +55,6 @@ public:
     // Blocks until a complete line, EOF, stop, or error.
     ReadResult read_line();
 
-    // Async-signal-safe on POSIX. Safe from a Windows SIGINT / console-control thread.
     void request_stop();
     void wake();
 

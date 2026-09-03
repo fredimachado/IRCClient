@@ -148,6 +148,35 @@ std::string registration_bytes(std::string_view nick, std::string_view user)
     return out;
 }
 
+std::string ping_flood(std::size_t count)
+{
+    std::string out;
+    out.reserve(count * 10);
+    for (std::size_t i = 0; i < count; ++i)
+        out += "PING :x\r\n";
+    return out;
+}
+
+void connect_and_block_outbound(LoopbackServer& server, ProcessHelper& proc, std::filesystem::path const& cli)
+{
+    REQUIRE(proc.start(
+        cli,
+        {"127.0.0.1", std::to_string(server.ipv4_port()), "alice", "aliceuser"}));
+    REQUIRE(server.wait_for_connection(kWait));
+
+    std::string const expected = registration_bytes("alice", "aliceuser");
+    REQUIRE(server.wait_until_received(expected.size(), kWait));
+
+    server.stall_reads();
+    server.send(ping_flood(40000));
+    REQUIRE(server.wait_until_unread(8192, kWait));
+    server.send(ping_flood(40000));
+    REQUIRE(server.wait_until_unread_stable(
+        8192,
+        std::chrono::milliseconds{500},
+        kWait));
+}
+
 } // namespace
 
 TEST_CASE("CLI /quit sends QUIT and the process exits")
@@ -245,4 +274,61 @@ TEST_CASE("CLI remote disconnect exits without hanging")
     auto const code = proc.wait_for_exit(kWait);
     REQUIRE(code.has_value());
     REQUIRE(*code == 0);
+}
+
+TEST_CASE("CLI interrupt exits while a send is blocked")
+{
+    auto const cli = require_cli();
+    LoopbackServer server;
+    ProcessHelper proc;
+    connect_and_block_outbound(server, proc, cli);
+
+    if (!proc.send_interrupt())
+    {
+        SKIP("Could not deliver a console interrupt to the child process: " + proc.interrupt_error());
+    }
+
+    auto const code = proc.wait_for_exit(kWait);
+    REQUIRE(code.has_value());
+    REQUIRE(*code == 0);
+}
+
+TEST_CASE("CLI /quit exits while a send is blocked")
+{
+    auto const cli = require_cli();
+    LoopbackServer server;
+    ProcessHelper proc;
+    connect_and_block_outbound(server, proc, cli);
+
+    REQUIRE(proc.write_stdin("/quit\n"));
+    auto const code = proc.wait_for_exit(kWait);
+    REQUIRE(code.has_value());
+    REQUIRE(*code == 0);
+}
+
+TEST_CASE("CLI connection failure does not hang")
+{
+    auto const cli = require_cli();
+
+    SECTION("connection refused")
+    {
+        ProcessHelper proc;
+        REQUIRE(proc.start(cli, {"127.0.0.1", "1"}));
+        auto const code = proc.wait_for_exit(kWait);
+        REQUIRE(code.has_value());
+        REQUIRE(*code != 0);
+    }
+
+    SECTION("peer reset after accept")
+    {
+        LoopbackServer server;
+        ProcessHelper proc;
+        REQUIRE(proc.start(
+            cli,
+            {"127.0.0.1", std::to_string(server.ipv4_port()), "alice", "aliceuser"}));
+        REQUIRE(server.wait_for_connection(kWait));
+        server.reset_peer();
+        auto const code = proc.wait_for_exit(kWait);
+        REQUIRE(code.has_value());
+    }
 }

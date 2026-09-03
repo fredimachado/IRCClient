@@ -39,6 +39,24 @@ public:
     void send(std::span<const std::uint8_t> bytes, std::size_t index = 0);
     void send(std::string_view bytes, std::size_t index = 0);
 
+    // Stop reading from the connection so the peer's send buffers fill and
+    // a blocking send can stall.
+    void stall_reads(std::size_t index = 0);
+
+    // Abortive close (SO_LINGER timeout 0) so the peer sees a reset on send.
+    void reset_peer(std::size_t index = 0);
+
+    [[nodiscard]] std::size_t unread(std::size_t index = 0) const;
+    bool wait_until_unread(
+        std::size_t min_bytes,
+        std::chrono::milliseconds timeout,
+        std::size_t index = 0);
+    bool wait_until_unread_stable(
+        std::size_t min_bytes,
+        std::chrono::milliseconds stable_for,
+        std::chrono::milliseconds timeout,
+        std::size_t index = 0);
+
     void stop();
 
 private:

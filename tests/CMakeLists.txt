@@ -18,8 +18,12 @@ target_link_libraries(ircclient_tests
     ircclient_core
     Catch2::Catch2WithMain
 )
+add_dependencies(ircclient_tests ircclient)
 ircclient_set_warnings(ircclient_tests)
 ircclient_apply_instrumentation(ircclient_tests)
 
 include(Catch)
-catch_discover_tests(ircclient_tests DISCOVERY_MODE PRE_TEST)
+catch_discover_tests(ircclient_tests
+  DISCOVERY_MODE PRE_TEST
+  PROPERTIES ENVIRONMENT "IRCCLIENT_BIN=$<TARGET_FILE:ircclient>"
+)

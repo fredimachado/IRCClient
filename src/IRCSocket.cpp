@@ -660,9 +660,15 @@ bool IRCSocket::Connect(char const* host, int port)
 
 void IRCSocket::Disconnect()
 {
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        impl_->begin_stop();
+    }
+
     std::lock_guard<std::mutex> send_lock(impl_->send_mutex);
     std::unique_lock<std::mutex> lock(impl_->mutex);
-    impl_->disconnect_locked(lock);
+    if (impl_->state == SocketState::stopping)
+        impl_->wait_idle_and_close(lock);
 }
 
 bool IRCSocket::Connected() const
@@ -705,6 +711,14 @@ bool IRCSocket::SendData(char const* data)
         const int n = impl_->ops->send(handle, data + offset, length - offset);
         if (n < 0)
         {
+            {
+                std::lock_guard<std::mutex> lock(impl_->mutex);
+                if (impl_->state != SocketState::connected)
+                {
+                    ok = false;
+                    break;
+                }
+            }
             if (impl_->ops->last_error_is_retryable())
             {
                 std::this_thread::yield();
@@ -721,13 +735,17 @@ bool IRCSocket::SendData(char const* data)
         offset += static_cast<std::size_t>(n);
     }
 
-    {
-        std::lock_guard<std::mutex> lock(impl_->mutex);
-        --impl_->in_flight;
-        impl_->cv.notify_all();
-    }
+    std::unique_lock<std::mutex> lock(impl_->mutex);
+    --impl_->in_flight;
+    impl_->cv.notify_all();
 
-    return ok && offset == length;
+    if (ok && offset == length)
+        return true;
+
+    if (impl_->state == SocketState::connected)
+        impl_->disconnect_locked(lock);
+
+    return false;
 }
 
 std::string IRCSocket::ReceiveData()

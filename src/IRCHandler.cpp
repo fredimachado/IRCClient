@@ -69,17 +69,18 @@ void IRCClient::HandleCTCP(IRCMessage message)
 
     text = text.substr(1, text.size() - 2);
 
-    std::cout << "[" + message.prefix.nick << " requested CTCP " << text << "]" << std::endl;
+    std::string const sender = SenderName(message.prefix);
+    std::cout << "[" + sender << " requested CTCP " << text << "]" << std::endl;
 
     if (to == _nick)
     {
         if (text == "VERSION")
         {
-            SendIRC("NOTICE " + message.prefix.nick + " :\001VERSION Open source IRC client by Fredi Machado - https://github.com/fredimachado/IRCClient \001");
+            SendIRC("NOTICE " + sender + " :\001VERSION Open source IRC client by Fredi Machado - https://github.com/fredimachado/IRCClient \001");
             return;
         }
 
-        SendIRC("NOTICE " + message.prefix.nick + " :\001ERRMSG " + text + " :Not implemented\001");
+        SendIRC("NOTICE " + sender + " :\001ERRMSG " + text + " :Not implemented\001");
     }
 }
 
@@ -98,15 +99,18 @@ void IRCClient::HandlePrivMsg(IRCMessage message)
         return;
     }
 
+    std::string const sender = SenderName(message.prefix);
     if (!to.empty() && to.front() == '#')
-        std::cout << "From " + message.prefix.nick << " @ " + to + ": " << text << std::endl;
+        std::cout << "From " + sender << " @ " + to + ": " << text << std::endl;
     else
-        std::cout << "From " + message.prefix.nick << ": " << text << std::endl;
+        std::cout << "From " + sender << ": " << text << std::endl;
 }
 
 void IRCClient::HandleNotice(IRCMessage message)
 {
-    std::string from = message.prefix.nick != "" ? message.prefix.nick : message.prefix.prefix;
+    std::string from = SenderName(message.prefix);
+    if (from.empty())
+        from = message.prefix.prefix;
     std::string text;
 
     if (!message.parameters.empty())

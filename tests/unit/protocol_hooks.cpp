@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cstring>
 #include <deque>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -112,6 +114,18 @@ void ResetCapture()
     g_pong_before_hook = false;
     g_connected_in_error_hook = true;
 }
+
+class CoutCapture
+{
+public:
+    CoutCapture() : old_(std::cout.rdbuf(buffer_.rdbuf())) {}
+    ~CoutCapture() { std::cout.rdbuf(old_); }
+    std::string str() const { return buffer_.str(); }
+
+private:
+    std::ostringstream buffer_;
+    std::streambuf* old_;
+};
 }
 
 TEST_CASE("hook command names match regardless of register or dispatch case")
@@ -182,4 +196,57 @@ TEST_CASE("PING without a hook still answers and ERROR without a hook still disc
     ops.push_recv("ERROR :bye\r\n");
     client.ReceiveData();
     REQUIRE_FALSE(client.Connected());
+}
+
+TEST_CASE("nick-only PRIVMSG displays the prefix as the sender")
+{
+    IRCClient client;
+    CoutCapture out;
+    client.Parse(":alice PRIVMSG #room :hello");
+    client.Parse(":n!u@h PRIVMSG #room :hello");
+    std::string const text = out.str();
+    REQUIRE(text.find("From alice @ #room: hello") != std::string::npos);
+    REQUIRE(text.find("From n @ #room: hello") != std::string::npos);
+}
+
+TEST_CASE("nick-only CTCP replies target the prefix nick")
+{
+    FakeSocketOps ops;
+    IRCClient client(ops);
+    PrimeConnected(client);
+    REQUIRE(client.Login("mynick", "myuser"));
+    ops.sent.clear();
+
+    CoutCapture out;
+    client.Parse(":alice PRIVMSG mynick :\001VERSION\001");
+    REQUIRE(out.str().find("[alice requested CTCP VERSION]") != std::string::npos);
+    REQUIRE(ops.sent.find("NOTICE alice :\001VERSION") != std::string::npos);
+}
+
+TEST_CASE("server-name prefixes are not treated as nicks for display or CTCP")
+{
+    FakeSocketOps ops;
+    IRCClient client(ops);
+    PrimeConnected(client);
+    REQUIRE(client.Login("mynick", "myuser"));
+    ops.sent.clear();
+
+    {
+        CoutCapture out;
+        client.Parse(":irc.example.net PRIVMSG #room :hello");
+        client.Parse(":irc.example.net NOTICE * :motd");
+        std::string const text = out.str();
+        REQUIRE(text.find("From  @ #room: hello") != std::string::npos);
+        REQUIRE(text.find("From irc.example.net") == std::string::npos);
+        REQUIRE(text.find("-irc.example.net- motd") != std::string::npos);
+    }
+
+    {
+        CoutCapture out;
+        client.Parse(":irc.example.net PRIVMSG mynick :\001VERSION\001");
+        REQUIRE(out.str().find("[ requested CTCP VERSION]") != std::string::npos);
+        REQUIRE(out.str().find("irc.example.net") == std::string::npos);
+    }
+    REQUIRE(ops.sent.find("NOTICE irc.example.net") == std::string::npos);
+    REQUIRE(ops.sent.find("NOTICE  :\001VERSION") != std::string::npos);
 }
