@@ -96,6 +96,13 @@ struct ConsoleInput::Impl
     HANDLE reader_thread = nullptr;
     DWORD stdin_type = FILE_TYPE_UNKNOWN;
 
+    enum class PipeReadStatus
+    {
+        Pending,
+        DataRead,
+        Finished
+    };
+
     void bind_reader_thread()
     {
         if (reader_thread != nullptr)
@@ -133,7 +140,7 @@ struct ConsoleInput::Impl
         return result;
     }
 
-    bool read_available_pipe(ConsoleInput::ReadResult& result)
+    PipeReadStatus read_available_pipe(ConsoleInput::ReadResult& result)
     {
         DWORD available = 0;
         if (!PeekNamedPipe(stdin_handle, nullptr, 0, nullptr, &available, nullptr))
@@ -142,14 +149,14 @@ struct ConsoleInput::Impl
             if (err == ERROR_BROKEN_PIPE || err == ERROR_PIPE_NOT_CONNECTED || err == ERROR_NO_DATA)
             {
                 result = finish_eof();
-                return true;
+                return PipeReadStatus::Finished;
             }
             result.status = ConsoleInput::Status::Error;
-            return true;
+            return PipeReadStatus::Finished;
         }
 
         if (available == 0)
-            return false;
+            return PipeReadStatus::Pending;
 
         char buf[1024];
         DWORD const to_read = available > sizeof(buf) ? static_cast<DWORD>(sizeof(buf)) : available;
@@ -162,18 +169,18 @@ struct ConsoleInput::Impl
                 result = stop_flag != 0
                     ? ConsoleInput::ReadResult{ConsoleInput::Status::Stopped, {}}
                     : finish_eof();
-                return true;
+                return PipeReadStatus::Finished;
             }
             result.status = ConsoleInput::Status::Error;
-            return true;
+            return PipeReadStatus::Finished;
         }
         if (n == 0)
         {
             result = finish_eof();
-            return true;
+            return PipeReadStatus::Finished;
         }
         buffer.append(buf, buf + n);
-        return false;
+        return PipeReadStatus::DataRead;
     }
 #else
     int wake_read = -1;
@@ -323,9 +330,10 @@ ConsoleInput::ReadResult ConsoleInput::read_line()
 
         if (impl_->stdin_type == FILE_TYPE_PIPE)
         {
-            if (impl_->read_available_pipe(result))
+            Impl::PipeReadStatus const read_status = impl_->read_available_pipe(result);
+            if (read_status == Impl::PipeReadStatus::Finished)
                 return result;
-            if (!impl_->buffer.empty())
+            if (read_status == Impl::PipeReadStatus::DataRead)
                 continue;
             DWORD const wait = WaitForSingleObject(impl_->wake_event, 25);
             if (impl_->stop_flag != 0 || wait == WAIT_OBJECT_0)

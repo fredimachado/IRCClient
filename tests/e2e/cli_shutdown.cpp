@@ -11,6 +11,7 @@
 #include <system_error>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #ifdef _WIN32
@@ -194,6 +195,37 @@ TEST_CASE("CLI stdin EOF exits and sends QUIT")
     std::string const got = as_text(server.received());
     REQUIRE(got.find("QUIT\r\n") != std::string::npos);
 }
+
+#ifdef _WIN32
+TEST_CASE("CLI waits efficiently for the rest of a piped stdin line")
+{
+    auto const cli = require_cli();
+    LoopbackServer server;
+    ProcessHelper proc;
+
+    REQUIRE(proc.start(
+        cli,
+        {"127.0.0.1", std::to_string(server.ipv4_port()), "alice", "aliceuser"}));
+    REQUIRE(server.wait_for_connection(kWait));
+
+    std::string const expected = registration_bytes("alice", "aliceuser");
+    REQUIRE(server.wait_until_received(expected.size(), kWait));
+
+    auto const before = proc.cpu_time();
+    REQUIRE(before.has_value());
+    REQUIRE(proc.write_stdin("partial"));
+    std::this_thread::sleep_for(std::chrono::milliseconds{400});
+    auto const after = proc.cpu_time();
+    REQUIRE(after.has_value());
+
+    REQUIRE(*after - *before < std::chrono::milliseconds{150});
+
+    REQUIRE(proc.write_stdin("\n/quit\n"));
+    auto const code = proc.wait_for_exit(kWait);
+    REQUIRE(code.has_value());
+    REQUIRE(*code == 0);
+}
+#endif
 
 TEST_CASE("CLI remote disconnect exits without hanging")
 {

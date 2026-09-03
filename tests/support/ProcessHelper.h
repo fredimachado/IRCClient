@@ -32,6 +32,7 @@ public:
     void terminate();
 
     [[nodiscard]] bool running() const;
+    [[nodiscard]] std::optional<std::chrono::milliseconds> cpu_time() const;
     [[nodiscard]] std::string stdout_text() const;
     [[nodiscard]] std::string stderr_text() const;
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <limits>
 #include <mutex>
 #include <thread>
@@ -489,6 +490,32 @@ void ProcessHelper::terminate()
 bool ProcessHelper::running() const
 {
     return impl_->alive.load(std::memory_order_acquire);
+}
+
+std::optional<std::chrono::milliseconds> ProcessHelper::cpu_time() const
+{
+#ifdef _WIN32
+    if (impl_->process == nullptr)
+        return std::nullopt;
+
+    FILETIME creation{};
+    FILETIME exit{};
+    FILETIME kernel{};
+    FILETIME user{};
+    if (!GetProcessTimes(impl_->process, &creation, &exit, &kernel, &user))
+        return std::nullopt;
+
+    auto const ticks = [](FILETIME const& time) {
+        return (static_cast<std::uint64_t>(time.dwHighDateTime) << 32)
+            | static_cast<std::uint64_t>(time.dwLowDateTime);
+    };
+    constexpr std::uint64_t ticks_per_millisecond = 10'000;
+    return std::chrono::milliseconds{
+        static_cast<std::chrono::milliseconds::rep>(
+            (ticks(kernel) + ticks(user)) / ticks_per_millisecond)};
+#else
+    return std::nullopt;
+#endif
 }
 
 std::string ProcessHelper::stdout_text() const
