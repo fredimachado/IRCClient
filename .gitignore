@@ -19,6 +19,8 @@ kanban/
 
 # Out-of-tree CMake builds
 build/
+build-sanitizer/
+build-coverage/
 cmake-build-*
 CMakeUserPresets.json
 Testing/

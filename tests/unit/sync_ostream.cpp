@@ -49,7 +49,7 @@ TEST_CASE("SyncOStream serializes concurrent writes to the same stream")
     }
 }
 
-TEST_CASE("SyncOStream keeps different destination streams independent")
+TEST_CASE("SyncOStream supports concurrent writes to different streams")
 {
     constexpr int thread_count = 8;
     constexpr int messages_per_thread = 32;
