@@ -1,0 +1,6 @@
+{
+  "line_percent": 60.00,
+  "branch_percent": 40.00,
+  "scope": "src/",
+  "notes": "Conservative floor for src/ production coverage from the current unit and loopback E2E suite. Not measured on Windows MSVC. These values are two-decimal stored numbers: CI floors measured percents down to 0.01 and fails if either metric is below the stored baseline. Raise line_percent and branch_percent to the two-decimal values from a healthy linux-coverage gcovr JSON summary after a green run."
+}
