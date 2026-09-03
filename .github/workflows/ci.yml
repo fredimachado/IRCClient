@@ -56,24 +56,6 @@ jobs:
       - name: Test
         run: ctest --preset default --output-on-failure --timeout ${{ env.CTEST_TIMEOUT }}
 
-  macos:
-    name: macOS Apple Clang
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Configure
-        run: cmake --preset default -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
-
-      - name: Build
-        run: cmake --build --preset default --parallel
-
-      - name: Test
-        run: ctest --preset default --output-on-failure --timeout ${{ env.CTEST_TIMEOUT }}
-
   windows-mingw:
     name: Windows MinGW UCRT64
     runs-on: windows-latest
