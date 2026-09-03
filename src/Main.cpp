@@ -26,25 +26,32 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <stop_token>
 #include <string>
+#if defined(__has_include)
 #if __has_include(<syncstream>)
 #include <syncstream>
+#define IRCCLIENT_HAS_SYNCSTREAM 1
+#endif
+#endif
+#ifndef IRCCLIENT_HAS_SYNCSTREAM
+#define IRCCLIENT_HAS_SYNCSTREAM 0
 #endif
 #include <system_error>
 #include <thread>
 
 namespace
 {
-#if defined(__cpp_lib_syncbuf) && (__cpp_lib_syncbuf >= 201803L)
+#if IRCCLIENT_HAS_SYNCSTREAM && defined(__cpp_lib_syncbuf) && (__cpp_lib_syncbuf >= 201803L)
     using SyncOStream = std::osyncstream;
 #else
     class SyncOStream
     {
     public:
         explicit SyncOStream(std::ostream& stream)
-            : stream_(stream), lock_(mutex_for(stream))
+            : stream_(stream), mutex_(mutex_for(stream)), lock_(*mutex_)
         {
         }
 
@@ -68,21 +75,29 @@ namespace
         }
 
     private:
-        static std::mutex& mutex_for(std::ostream& stream)
+        static std::shared_ptr<std::mutex> mutex_for(std::ostream& stream)
         {
-            static std::mutex cout_mutex;
-            static std::mutex cerr_mutex;
-            static std::mutex other_mutex;
+            static std::mutex registry_mutex;
+            static std::map<std::streambuf*, std::weak_ptr<std::mutex>> mutexes;
+            static auto fallback_mutex = std::make_shared<std::mutex>();
 
-            if (&stream == &std::cout)
-                return cout_mutex;
-            if (&stream == &std::cerr)
-                return cerr_mutex;
-            return other_mutex;
+            std::streambuf* const buffer = stream.rdbuf();
+            if (buffer == nullptr)
+                return fallback_mutex;
+
+            std::lock_guard<std::mutex> registry_lock(registry_mutex);
+            std::shared_ptr<std::mutex> mutex = mutexes[buffer].lock();
+            if (!mutex)
+            {
+                mutex = std::make_shared<std::mutex>();
+                mutexes[buffer] = mutex;
+            }
+            return mutex;
         }
 
         std::ostream& stream_;
-        std::lock_guard<std::mutex> lock_;
+        std::shared_ptr<std::mutex> mutex_;
+        std::unique_lock<std::mutex> lock_;
     };
 #endif
 
