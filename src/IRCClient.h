@@ -79,6 +79,7 @@ public:
     bool Connected() { return _socket.Connected(); };
 
     bool SendIRC(std::string /*data*/);
+    bool TrySendIRC(std::string /*data*/);
 
     // Registers with an optional PASS, then NICK, then USER. The three
     // lines are sent in one write so other SendIRC callers cannot interleave

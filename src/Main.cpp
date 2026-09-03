@@ -18,6 +18,7 @@
 #include "IRCClient.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cerrno>
 #include <condition_variable>
@@ -282,6 +283,7 @@ int main(int argc, char* argv[])
         shutdown.request();
         console.request_stop();
     });
+    std::atomic<bool> local_quit_requested{false};
 
     std::jthread receive_worker;
     std::jthread input_worker;
@@ -305,7 +307,7 @@ int main(int argc, char* argv[])
 
     try
     {
-        input_worker = std::jthread([&client, &console, &shutdown](std::stop_token stop) {
+        input_worker = std::jthread([&client, &console, &shutdown, &local_quit_requested](std::stop_token stop) {
             std::stop_callback wake_on_stop(stop, [&console] { console.request_stop(); });
 
             while (!stop.stop_requested() && !console.stop_requested() && !shutdown.requested())
@@ -319,9 +321,8 @@ int main(int argc, char* argv[])
                 }
                 if (input.status == ConsoleInput::Status::Eof)
                 {
+                    local_quit_requested.store(true, std::memory_order_release);
                     shutdown.request();
-                    if (client.Connected())
-                        client.SendIRC("QUIT");
                     break;
                 }
                 if (input.line.empty())
@@ -329,9 +330,8 @@ int main(int argc, char* argv[])
 
                 if (IsQuitCommand(input.line))
                 {
+                    local_quit_requested.store(true, std::memory_order_release);
                     shutdown.request();
-                    if (client.Connected())
-                        client.SendIRC("QUIT");
                     break;
                 }
 
@@ -357,11 +357,17 @@ int main(int argc, char* argv[])
     shutdown.wait();
 
     console.request_stop();
+    bool const send_quit = local_quit_requested.load(std::memory_order_acquire);
+    if (send_quit && input_worker.joinable())
+        input_worker.join();
+
+    if (send_quit && client.Connected())
+        client.TrySendIRC("QUIT");
+
     if (input_worker.joinable())
         input_worker.request_stop();
     if (receive_worker.joinable())
         receive_worker.request_stop();
-
     if (client.Connected())
         client.Disconnect();
 
