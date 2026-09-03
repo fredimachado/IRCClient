@@ -200,6 +200,18 @@ bool IRCClient::SendIRC(std::string data)
     return _socket.SendData(data.c_str());
 }
 
+bool IRCClient::TrySendIRC(std::string data)
+{
+    if (data.empty() || ContainsIrcForbidden(data) || !FitsIrcFrame(data))
+        return false;
+
+    data.append("\r\n");
+    std::unique_lock<std::mutex> lock(_send_mutex, std::try_to_lock);
+    if (!lock.owns_lock())
+        return false;
+    return _socket.SendData(data.c_str());
+}
+
 bool IRCClient::Login(std::string nick, std::string user, std::string password)
 {
     if (!IsValidRegistrationField(nick) || !IsValidRegistrationField(user))
