@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstring>
 #include <deque>
 #include <mutex>
@@ -53,8 +54,35 @@ public:
 
         std::unique_lock<std::mutex> lock(mutex_);
         ++send_count;
+        send_cv_.notify_all();
         if (socket != live_handle_)
             ++stale_ops;
+
+        if (send_abort_)
+        {
+            retryable_ = false;
+            return -1;
+        }
+
+        if (send_hard_error)
+        {
+            retryable_ = false;
+            return -1;
+        }
+
+        if (send_always_retryable)
+        {
+            retryable_ = true;
+            send_cv_.wait_for(lock, std::chrono::milliseconds{20}, [this] {
+                return send_abort_ || !send_always_retryable;
+            });
+            if (send_abort_)
+            {
+                retryable_ = false;
+                return -1;
+            }
+            return -1;
+        }
 
         if (send_hard_error_after > 0 && send_count > send_hard_error_after)
         {
@@ -146,10 +174,26 @@ public:
         recv_script.push_back(RecvEvent{kind, std::move(data)});
     }
 
+    bool wait_until_send_count(int min_count, std::chrono::milliseconds timeout)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        return send_cv_.wait_for(lock, timeout, [&] { return send_count >= min_count; });
+    }
+
+    void abort_sends()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        send_abort_ = true;
+        send_always_retryable = false;
+        send_cv_.notify_all();
+    }
+
     int connect_result = 0;
     std::size_t send_limit = static_cast<std::size_t>(-1);
     int send_retryable_remaining = 0;
     int send_hard_error_after = 0;
+    bool send_hard_error = false;
+    bool send_always_retryable = false;
     std::chrono::milliseconds send_delay{0};
 
     std::string sent;
@@ -165,10 +209,24 @@ public:
 
 private:
     mutable std::mutex mutex_;
+    std::condition_variable send_cv_;
     handle_type next_handle_ = 1;
     handle_type live_handle_ = invalid_handle;
     bool retryable_ = false;
+    bool send_abort_ = false;
 };
+
+bool wait_flag(std::atomic<bool> const& flag, std::chrono::milliseconds timeout)
+{
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    while (!flag.load(std::memory_order_acquire))
+    {
+        if (std::chrono::steady_clock::now() >= deadline)
+            return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    }
+    return true;
+}
 } // namespace
 
 TEST_CASE("SendData retries partial sends until every byte is written")
@@ -328,4 +386,78 @@ TEST_CASE("ReceiveData fails while disconnected")
     REQUIRE(socket.Init());
     REQUIRE(socket.ReceiveData().empty());
     REQUIRE(ops.recv_count == 0);
+}
+
+TEST_CASE("SendData stops retrying retryable errors after Disconnect")
+{
+    FakeSocketOps ops;
+    ops.send_always_retryable = true;
+
+    IRCSocket socket(ops);
+    REQUIRE(socket.Init());
+    REQUIRE(socket.Connect("host", 6667));
+
+    std::atomic<bool> sender_done{false};
+    std::atomic<bool> send_ok{true};
+    std::atomic<bool> disconnect_done{false};
+    std::thread sender([&] {
+        send_ok = socket.SendData("hello");
+        sender_done = true;
+    });
+    std::thread stopper;
+
+    struct Cleanup
+    {
+        FakeSocketOps& ops;
+        std::thread& sender;
+        std::thread& stopper;
+        ~Cleanup()
+        {
+            ops.abort_sends();
+            if (sender.joinable())
+                sender.join();
+            if (stopper.joinable())
+                stopper.join();
+        }
+    } cleanup{ops, sender, stopper};
+
+    REQUIRE(ops.wait_until_send_count(1, std::chrono::seconds{2}));
+
+    stopper = std::thread([&] {
+        socket.Disconnect();
+        disconnect_done = true;
+    });
+
+    REQUIRE(wait_flag(disconnect_done, std::chrono::seconds{2}));
+    REQUIRE(wait_flag(sender_done, std::chrono::seconds{2}));
+    REQUIRE_FALSE(send_ok);
+    REQUIRE_FALSE(socket.Connected());
+}
+
+TEST_CASE("SendData disconnects on a hard send error")
+{
+    FakeSocketOps ops;
+    ops.send_hard_error = true;
+
+    IRCSocket socket(ops);
+    REQUIRE(socket.Init());
+    REQUIRE(socket.Connect("host", 6667));
+
+    REQUIRE_FALSE(socket.SendData("hello"));
+    REQUIRE_FALSE(socket.Connected());
+    REQUIRE(ops.close_count == 1);
+}
+
+TEST_CASE("SendData disconnects when send returns zero")
+{
+    FakeSocketOps ops;
+    ops.send_limit = 0;
+
+    IRCSocket socket(ops);
+    REQUIRE(socket.Init());
+    REQUIRE(socket.Connect("host", 6667));
+
+    REQUIRE_FALSE(socket.SendData("hello"));
+    REQUIRE_FALSE(socket.Connected());
+    REQUIRE(ops.close_count == 1);
 }

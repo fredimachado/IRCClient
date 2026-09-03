@@ -94,6 +94,7 @@ struct ProcessHelper::Impl
     mutable std::mutex mutex;
     std::string stdout_buf;
     std::string stderr_buf;
+    std::string interrupt_error;
     std::thread stdout_thread;
     std::thread stderr_thread;
     std::atomic<bool> alive{false};
@@ -101,6 +102,7 @@ struct ProcessHelper::Impl
 
 #ifdef _WIN32
     HANDLE process = nullptr;
+    DWORD pid = 0;
     HANDLE stdin_write = nullptr;
     HANDLE stdout_read = nullptr;
     HANDLE stderr_read = nullptr;
@@ -134,6 +136,7 @@ struct ProcessHelper::Impl
         close_handle(stdout_read);
         close_handle(stderr_read);
         close_handle(process);
+        pid = 0;
 #else
         close_fd(stdin_fd);
         close_fd(stdout_fd);
@@ -304,7 +307,7 @@ bool ProcessHelper::start(
         nullptr,
         nullptr,
         TRUE,
-        CREATE_NO_WINDOW,
+        CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW,
         nullptr,
         nullptr,
         &si,
@@ -324,6 +327,7 @@ bool ProcessHelper::start(
 
     CloseHandle(pi.hThread);
     impl_->process = pi.hProcess;
+    impl_->pid = pi.dwProcessId;
     impl_->stdin_write = stdin_write;
     impl_->stdout_read = stdout_read;
     impl_->stderr_read = stderr_read;
@@ -467,6 +471,52 @@ bool ProcessHelper::close_stdin()
     close_fd(impl_->stdin_fd);
     return true;
 #endif
+}
+
+bool ProcessHelper::send_interrupt()
+{
+    impl_->interrupt_error.clear();
+    if (!impl_->alive.load(std::memory_order_acquire))
+    {
+        impl_->interrupt_error = "child is not running";
+        return false;
+    }
+
+#ifdef _WIN32
+    if (impl_->pid == 0)
+    {
+        impl_->interrupt_error = "no child pid";
+        return false;
+    }
+
+    // CREATE_NEW_PROCESS_GROUP disables CTRL_C_EVENT for the child, so
+    // CTRL_BREAK_EVENT is the event the console API can deliver to just
+    // that process group. The parent ignores it while generating the event.
+    SetConsoleCtrlHandler(nullptr, TRUE);
+    const BOOL generated = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, impl_->pid);
+    if (!generated)
+        impl_->interrupt_error =
+            "GenerateConsoleCtrlEvent(CTRL_BREAK) failed, error=" + std::to_string(GetLastError());
+    SetConsoleCtrlHandler(nullptr, FALSE);
+    return generated != FALSE;
+#else
+    if (impl_->pid <= 0)
+    {
+        impl_->interrupt_error = "no child pid";
+        return false;
+    }
+    if (::kill(impl_->pid, SIGINT) != 0)
+    {
+        impl_->interrupt_error = "kill(SIGINT) failed, errno=" + std::to_string(errno);
+        return false;
+    }
+    return true;
+#endif
+}
+
+std::string ProcessHelper::interrupt_error() const
+{
+    return impl_->interrupt_error;
 }
 
 std::optional<int> ProcessHelper::wait_for_exit(std::chrono::milliseconds timeout)

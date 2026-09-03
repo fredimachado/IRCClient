@@ -26,6 +26,13 @@ public:
     bool write_stdin(std::string_view data);
     bool close_stdin();
 
+    // Delivers a real console interrupt to the child: SIGINT on POSIX, or
+    // CTRL_BREAK_EVENT on Windows via GenerateConsoleCtrlEvent to the
+    // child's process group. Returns false when the child is not running
+    // or the platform cannot deliver a console control event.
+    bool send_interrupt();
+    [[nodiscard]] std::string interrupt_error() const;
+
     // Waits up to timeout for the child to exit. On timeout the child is
     // killed and this returns nullopt. Otherwise returns the exit code.
     std::optional<int> wait_for_exit(std::chrono::milliseconds timeout);

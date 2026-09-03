@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <limits>
 #include <mutex>
@@ -25,6 +26,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -263,6 +265,7 @@ struct LoopbackServer::Impl
         std::vector<std::uint8_t> received;
         std::vector<std::uint8_t> pending_send;
         bool read_closed = false;
+        bool stall_reads = false;
     };
 
     WinsockLifetime winsock;
@@ -338,7 +341,7 @@ struct LoopbackServer::Impl
                 {
                     if (!connection.socket.valid())
                         continue;
-                    if (!connection.read_closed)
+                    if (!connection.read_closed && !connection.stall_reads)
                         add_read(connection.socket.get());
                     if (!connection.pending_send.empty())
                         add_write(connection.socket.get());
@@ -401,7 +404,7 @@ struct LoopbackServer::Impl
                 continue;
 
             NativeSocket s = connection.socket.get();
-            if (!connection.read_closed && FD_ISSET(s, &read_fds))
+            if (!connection.read_closed && !connection.stall_reads && FD_ISSET(s, &read_fds))
                 read_from(connection);
             if (connection.socket.valid() && !connection.pending_send.empty() && FD_ISSET(s, &write_fds))
                 write_to(connection);
@@ -523,6 +526,106 @@ void LoopbackServer::send(std::string_view bytes, std::size_t index)
             reinterpret_cast<const std::uint8_t*>(bytes.data()),
             bytes.size()),
         index);
+}
+
+void LoopbackServer::stall_reads(std::size_t index)
+{
+    std::lock_guard lock(impl_->mutex);
+    if (index >= impl_->connections.size())
+        throw std::out_of_range("LoopbackServer::stall_reads: no such connection");
+    auto& connection = impl_->connections[index];
+    connection.stall_reads = true;
+}
+
+void LoopbackServer::reset_peer(std::size_t index)
+{
+    std::lock_guard lock(impl_->mutex);
+    if (index >= impl_->connections.size())
+        throw std::out_of_range("LoopbackServer::reset_peer: no such connection");
+    auto& connection = impl_->connections[index];
+    if (!connection.socket.valid())
+        return;
+
+    struct linger linger_opts{};
+    linger_opts.l_onoff = 1;
+    linger_opts.l_linger = 0;
+    setsockopt(
+        connection.socket.get(),
+        SOL_SOCKET,
+        SO_LINGER,
+        reinterpret_cast<const char*>(&linger_opts),
+        sizeof(linger_opts));
+    connection.socket.reset();
+    connection.read_closed = true;
+    connection.pending_send.clear();
+}
+
+std::size_t LoopbackServer::unread(std::size_t index) const
+{
+    std::lock_guard lock(impl_->mutex);
+    if (index >= impl_->connections.size())
+        return 0;
+    auto& connection = impl_->connections[index];
+    if (!connection.socket.valid())
+        return 0;
+
+#ifdef _WIN32
+    u_long available = 0;
+    if (ioctlsocket(connection.socket.get(), FIONREAD, &available) != 0)
+        return 0;
+    return static_cast<std::size_t>(available);
+#else
+    int available = 0;
+    if (ioctl(connection.socket.get(), FIONREAD, &available) != 0 || available < 0)
+        return 0;
+    return static_cast<std::size_t>(available);
+#endif
+}
+
+bool LoopbackServer::wait_until_unread(
+    std::size_t min_bytes,
+    std::chrono::milliseconds timeout,
+    std::size_t index)
+{
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    for (;;)
+    {
+        if (unread(index) >= min_bytes)
+            return true;
+        if (std::chrono::steady_clock::now() >= deadline)
+            return unread(index) >= min_bytes;
+
+        std::unique_lock lock(impl_->mutex);
+        impl_->cv.wait_for(lock, std::chrono::milliseconds{10});
+    }
+}
+
+bool LoopbackServer::wait_until_unread_stable(
+    std::size_t min_bytes,
+    std::chrono::milliseconds stable_for,
+    std::chrono::milliseconds timeout,
+    std::size_t index)
+{
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    std::size_t last = unread(index);
+    auto last_change = std::chrono::steady_clock::now();
+    for (;;)
+    {
+        const auto now = std::chrono::steady_clock::now();
+        const std::size_t current = unread(index);
+        if (current != last)
+        {
+            last = current;
+            last_change = now;
+        }
+        if (current >= min_bytes && (now - last_change) >= stable_for)
+            return true;
+        if (now >= deadline)
+            return current >= min_bytes && (now - last_change) >= stable_for;
+
+        std::unique_lock lock(impl_->mutex);
+        impl_->cv.wait_for(lock, std::chrono::milliseconds{10});
+    }
 }
 
 void LoopbackServer::stop()
