@@ -62,9 +62,16 @@ bool IRCSocket::Init()
 
 bool IRCSocket::Connect(char const* host, int port)
 {
-    hostent* he;
+    addrinfo hints = {};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
 
-    if (!(he = gethostbyname(host)))
+    addrinfo* result = NULL;
+    std::ostringstream portStr;
+    portStr << port;
+
+    if (getaddrinfo(host, portStr.str().c_str(), &hints, &result) != 0 || !result)
     {
         std::cout << "Could not resolve host: " << host << std::endl;
         #ifdef _WIN32
@@ -73,14 +80,10 @@ bool IRCSocket::Connect(char const* host, int port)
         return false;
     }
 
-    sockaddr_in addr;
+    int connectResult = connect(_socket, result->ai_addr, (int)result->ai_addrlen);
+    freeaddrinfo(result);
 
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr = *((const in_addr*)he->h_addr);
-    memset(&(addr.sin_zero), '\0', 8);
-
-    if (connect(_socket, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR)
+    if (connectResult == SOCKET_ERROR)
     {
         std::cout << "Could not connect to: " << host << std::endl;
         closesocket(_socket);

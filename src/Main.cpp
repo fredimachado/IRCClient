@@ -16,10 +16,24 @@
 #include <iostream>
 #include <signal.h>
 #include <cstdlib>
+#include <cctype>
 #include <map>
 #include <algorithm>
 #include "Thread.h"
 #include "IRCClient.h"
+
+namespace
+{
+    char ToLowerAscii(char ch)
+    {
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+
+    char ToUpperAscii(char ch)
+    {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    }
+}
 
 volatile bool running;
 
@@ -36,7 +50,7 @@ public:
         CommandEntry entry;
         entry.argCount = argCount;
         entry.handler = handler;
-        std::transform(name.begin(), name.end(), name.begin(), towlower);
+        std::transform(name.begin(), name.end(), name.begin(), ToLowerAscii);
         _commands.insert(std::pair<std::string, CommandEntry>(name, entry));
         return true;
     }
@@ -56,7 +70,7 @@ public:
         std::string args = command.substr(command.find(" ") + 1);
         int argCount = std::count(args.begin(), args.end(), ' ');
 
-        std::transform(name.begin(), name.end(), name.begin(), towlower);
+        std::transform(name.begin(), name.end(), name.begin(), ToLowerAscii);
 
         std::map<std::string, CommandEntry>::const_iterator itr = _commands.find(name);
         if (itr == _commands.end())
@@ -116,7 +130,7 @@ void ctcpCommand(std::string arguments, IRCClient* client)
     std::string to = arguments.substr(0, arguments.find(" "));
     std::string text = arguments.substr(arguments.find(" ") + 1);
 
-    std::transform(text.begin(), text.end(), text.begin(), towupper);
+    std::transform(text.begin(), text.end(), text.begin(), ToUpperAscii);
 
     client->SendIRC("PRIVMSG " + to + " :\001" + text + "\001");
 }

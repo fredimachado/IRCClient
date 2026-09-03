@@ -1,6 +1,14 @@
 *.suo
 *.user
-Debug/*
+Debug/
+Release/
+Win32/
+.vs/
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.ipch
 *.orig
 *.rej
 *.patch

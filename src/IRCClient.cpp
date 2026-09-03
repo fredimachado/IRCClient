@@ -15,9 +15,18 @@
 
 #include <iostream>
 #include <algorithm>
+#include <cctype>
 #include "IRCSocket.h"
 #include "IRCClient.h"
 #include "IRCHandler.h"
+
+namespace
+{
+    char ToUpperAscii(char ch)
+    {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    }
+}
 
 std::vector<std::string> split(std::string const& text, char sep)
 {
@@ -97,7 +106,7 @@ void IRCClient::Parse(std::string data)
     }
 
     std::string command = data.substr(0, data.find(" "));
-    std::transform(command.begin(), command.end(), command.begin(), towupper);
+    std::transform(command.begin(), command.end(), command.begin(), ToUpperAscii);
     if (data.find(" ") != std::string::npos)
         data = data.substr(data.find(" ") + 1);
     else
