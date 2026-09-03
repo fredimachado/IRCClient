@@ -177,7 +177,7 @@ static_assert(SocketOps::invalid_handle == static_cast<SocketOps::handle_type>(-
 
 TEST_CASE("loopback server binds, accepts, and echoes")
 {
-    WinsockRef winsock;
+    [[maybe_unused]] WinsockRef winsock;
     LoopbackServer server;
 
     REQUIRE(server.ipv4_port() > 0);
