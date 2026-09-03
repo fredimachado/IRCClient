@@ -20,6 +20,8 @@
 
 #define NUM_IRC_CMDS 26
 
+// Built-in handlers cover RFC 1459 / RFC 2812 commands only.
+// IRCv3 message tags and CAP negotiation are unsupported.
 struct IRCCommandHandler
 {
     std::string command;
